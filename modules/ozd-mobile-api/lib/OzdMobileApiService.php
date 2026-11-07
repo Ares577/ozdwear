@@ -75,6 +75,19 @@ class OzdMobileApiService
 			if (Customer::getId() > 0) self::respond(['success' => true, 'data' => self::issueTokens(Customer::getId())]);
 			self::respond($result, 201);
 		}
+		if ($action === 'google') {
+			if (!class_exists('GoogleLoginModule', false) || !Module::isEnabled('google-login')) {
+				self::respond(['success' => false, 'message' => 'Google ile giriş şu anda yapılandırılmamış'], 503);
+			}
+			$code = trim((string) ($data['code'] ?? ''));
+			if ($code === '') self::respond(['success' => false, 'message' => 'Google yetkilendirme kodu gerekli'], 422);
+			$google = GoogleLoginModule::exchangeCode($code);
+			if (empty($google['success'])) self::respond($google, 401);
+			$login = Customer::authWithGoogle((string) ($google['google_id'] ?? ''), (string) ($google['email'] ?? ''), (string) ($google['name'] ?? ''), !empty($google['email_verified']));
+			if (!empty($login['pending'])) self::respond($login, 403);
+			if (empty($login['success'])) self::respond($login, 401);
+			self::respond(['success' => true, 'data' => self::issueTokens(Customer::getId())]);
+		}
 		if ($action === 'forgot-password') {
 			self::respond(Customer::requestPasswordReset((string) ($data['email'] ?? '')));
 		}
