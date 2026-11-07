@@ -46,6 +46,6 @@ INSERT INTO `settings` (`title`, `value`)
 VALUES ('OZD_MOBILE_API_ENABLED', '1')
 ON DUPLICATE KEY UPDATE `value` = VALUES(`value`);
 
-INSERT INTO `settings` (`setting_key`, `setting_value`)
+INSERT INTO `settings` (`title`, `value`)
 VALUES ('OZD_MOBILE_API_VERSION', '1.0.0')
-ON DUPLICATE KEY UPDATE `setting_value` = `setting_value`;
+ON DUPLICATE KEY UPDATE `value` = VALUES(`value`);
