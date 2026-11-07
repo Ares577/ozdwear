@@ -61,6 +61,7 @@ class AppState extends ChangeNotifier {
       return null;
     } catch (e) { return e.toString(); }
   }
+  Future<String?> forgotPassword(String email) async { try { await api.post('auth/forgot-password', body: {'email': email}); return null; } catch (e) { return e.toString(); } }
   Future<void> logout() async { try { await api.post('auth/logout'); } catch (_) {} await session.clear(); signedIn = false; notifyListeners(); }
   Future<void> loadCart() async { final result = await api.get('cart'); cart = Map<String, dynamic>.from((result['data'] as Map?) ?? const {}); notifyListeners(); }
   Future<void> addToCart(Product product, {int variationId = 0}) async { await api.post('cart/add', body: {'product_id': product.id, 'quantity': 1, 'variation_id': variationId}); await loadCart(); }
