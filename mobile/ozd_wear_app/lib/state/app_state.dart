@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import '../core/api_client.dart';
 import '../core/session_store.dart';
 import '../models/product.dart';
+import 'package:google_sign_in/google_sign_in.dart';
 
 class AppState extends ChangeNotifier {
   final SessionStore session = SessionStore();
@@ -16,6 +17,8 @@ class AppState extends ChangeNotifier {
   Map<String, dynamic> profile = {};
   List<dynamic> notifications = [];
   int unreadNotifications = 0;
+  bool googleLoginEnabled = false;
+  String googleServerClientId = '';
   String? lastError;
 
   Future<void> hydrateSession() async {
@@ -29,6 +32,9 @@ class AppState extends ChangeNotifier {
     try {
       final result = await api.get('bootstrap');
       bootstrap = Map<String, dynamic>.from((result['data'] as Map?) ?? const {});
+      final google = (bootstrap['google_login'] as Map?) ?? const {};
+      googleLoginEnabled = google['enabled'] == true;
+      googleServerClientId = '${google['server_client_id'] ?? ''}';
       final categoryResult = await api.get('categories');
       categories = (categoryResult['data'] as List?) ?? const [];
       notifyListeners();
@@ -66,6 +72,22 @@ class AppState extends ChangeNotifier {
     } catch (e) { return e.toString(); }
   }
   Future<String?> forgotPassword(String email) async { try { await api.post('auth/forgot-password', body: {'email': email}); return null; } catch (e) { return e.toString(); } }
+  Future<String?> loginWithGoogle() async {
+    if (!googleLoginEnabled || googleServerClientId.isEmpty) return 'Google ile giriş yapılandırılmamış';
+    try {
+      final signIn = GoogleSignIn(scopes: const ['email', 'profile'], serverClientId: googleServerClientId);
+      final account = await signIn.signIn();
+      if (account == null) return 'Google girişi iptal edildi';
+      final code = account.serverAuthCode;
+      if (code == null || code.isEmpty) return 'Google yetkilendirme kodu alınamadı';
+      final result = await api.post('auth/google', body: {'code': code});
+      await session.save(access: result['data']['access_token'], refresh: result['data']['refresh_token']);
+      signedIn = true;
+      await Future.wait([loadProfile(), loadNotifications()]);
+      notifyListeners();
+      return null;
+    } catch (e) { return e.toString(); }
+  }
   Future<void> logout() async { try { await api.post('auth/logout'); } catch (_) {} await session.clear(); signedIn = false; notifyListeners(); }
   Future<void> loadProfile() async { final result = await api.get('profile'); profile = Map<String, dynamic>.from((result['data'] as Map?) ?? const {}); notifyListeners(); }
   Future<String?> saveProfile({required String fullName, required String phone, required String email}) async { try { final result = await api.put('profile', body: {'full_name': fullName, 'phone': phone, 'email': email}); profile = Map<String, dynamic>.from((result['data'] as Map?) ?? const {}); notifyListeners(); return null; } catch (e) { return e.toString(); } }

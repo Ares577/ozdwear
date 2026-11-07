@@ -130,6 +130,7 @@ class OzdMobileApiService
 	private static function bootstrap(): void
 	{
 		$logos = class_exists('SiteAssets', false) ? SiteAssets::getLogos() : [];
+		$googleEnabled = class_exists('GoogleLoginModule', false) && Module::isEnabled('google-login') && trim((string) Settings::get('GOOGLE_CLIENT_ID')) !== '';
 		$slides = [];
 		if (class_exists('SliderModule', false) && method_exists('SliderModule', 'getList')) {
 			$slides = [
@@ -141,6 +142,7 @@ class OzdMobileApiService
 			'app_name' => Settings::get('SITE_NAME') ?: 'OZD WEAR',
 			'version' => Settings::get('OZD_MOBILE_API_VERSION') ?: '1.0.0',
 			'logos' => $logos,
+			'google_login' => ['enabled' => $googleEnabled, 'server_client_id' => $googleEnabled ? (string) Settings::get('GOOGLE_CLIENT_ID') : ''],
 			'slides' => $slides,
 			'theme' => ['background' => '#f7f7f5', 'ink' => '#111111', 'muted' => '#767676', 'accent' => '#111111'],
 		]]);
