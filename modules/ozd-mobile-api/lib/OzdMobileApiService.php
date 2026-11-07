@@ -56,6 +56,7 @@ class OzdMobileApiService
 		if ($resource === 'coupon') self::coupon($method, $parts[1] ?? '', $data, $user);
 		if ($resource === 'checkout') self::checkout($method, $parts[1] ?? '', $data, $user);
 		if ($resource === 'orders') self::orders($method, $id, $user);
+		if ($resource === 'notifications') self::notifications($method, $id, $parts[2] ?? '', $user);
 		if ($resource === 'devices' && $method === 'POST') self::device($data, $user);
 		self::respond(['success' => false, 'message' => 'Mobil API rotası bulunamadı'], 404);
 	}
@@ -233,6 +234,16 @@ class OzdMobileApiService
 		$uid = (int) $user['id_user'];
 		if ($method === 'GET' && $id > 0) self::respond(['success' => true, 'data' => Order::getByIdForUser($id, $uid)]);
 		self::respond(['success' => true, 'data' => Order::getUserOrders($uid)]);
+	}
+
+	private static function notifications(string $method, int $id, string $action, ?array $user): void
+	{
+		if (!$user) self::respond(['success' => false, 'message' => 'Giriş yapmalısınız'], 401);
+		$idUser = (int) $user['id_user'];
+		if ($method === 'GET') self::respond(['success' => true, 'data' => Notification::getListForUser($idUser, 100), 'unread' => Notification::getUnreadCount($idUser)]);
+		if ($method === 'POST' && $action === 'read-all') { Notification::markAllRead($idUser); self::respond(['success' => true, 'unread' => 0]); }
+		if ($method === 'POST' && $action === 'read' && $id > 0) self::respond(['success' => Notification::markRead($id, $idUser), 'unread' => Notification::getUnreadCount($idUser)]);
+		self::respond(['success' => false, 'message' => 'Bildirim işlemi geçersiz'], 405);
 	}
 
 	private static function device(array $data, ?array $user): void

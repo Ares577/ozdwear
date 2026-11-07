@@ -18,6 +18,7 @@ class ApiClient {
   Future<dynamic> get(String route, {Map<String, String>? query}) => _request('GET', route, query: query);
   Future<dynamic> post(String route, {Map<String, dynamic>? body}) => _request('POST', route, body: body);
   Future<dynamic> patch(String route, {Map<String, dynamic>? body}) => _request('PATCH', route, body: body);
+  Future<dynamic> put(String route, {Map<String, dynamic>? body}) => _request('PUT', route, body: body);
   Future<dynamic> delete(String route, {Map<String, dynamic>? body}) => _request('DELETE', route, body: body);
 
   Future<dynamic> _request(String method, String route, {Map<String, String>? query, Map<String, dynamic>? body, bool retry = true, String? bearerOverride}) async {

@@ -13,12 +13,15 @@ class AppState extends ChangeNotifier {
   List<dynamic> categories = [];
   Map<String, dynamic> bootstrap = {};
   Map<String, dynamic> cart = {};
+  Map<String, dynamic> profile = {};
+  List<dynamic> notifications = [];
+  int unreadNotifications = 0;
   String? lastError;
 
   Future<void> hydrateSession() async {
     try {
       final token = await session.accessToken;
-      if (token != null && token.isNotEmpty) { await api.get('auth/me'); signedIn = true; notifyListeners(); }
+      if (token != null && token.isNotEmpty) { await api.get('auth/me'); signedIn = true; await Future.wait([loadProfile(), loadNotifications()]); notifyListeners(); }
     } catch (_) { await session.clear(); }
   }
 
@@ -47,7 +50,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<String?> login(String login, String password) async {
-    try { final result = await api.post('auth/login', body: {'login': login, 'password': password}); await session.save(access: result['data']['access_token'], refresh: result['data']['refresh_token']); signedIn = true; notifyListeners(); return null; } catch (e) { return e.toString(); }
+    try { final result = await api.post('auth/login', body: {'login': login, 'password': password}); await session.save(access: result['data']['access_token'], refresh: result['data']['refresh_token']); signedIn = true; await Future.wait([loadProfile(), loadNotifications()]); notifyListeners(); return null; } catch (e) { return e.toString(); }
   }
   Future<String?> register(String name, String phone, String email, String password) async {
     try {
@@ -56,6 +59,7 @@ class AppState extends ChangeNotifier {
       if (data is Map && data['access_token'] != null) {
         await session.save(access: data['access_token'], refresh: data['refresh_token']);
         signedIn = true;
+        await Future.wait([loadProfile(), loadNotifications()]);
         notifyListeners();
       }
       return null;
@@ -63,6 +67,12 @@ class AppState extends ChangeNotifier {
   }
   Future<String?> forgotPassword(String email) async { try { await api.post('auth/forgot-password', body: {'email': email}); return null; } catch (e) { return e.toString(); } }
   Future<void> logout() async { try { await api.post('auth/logout'); } catch (_) {} await session.clear(); signedIn = false; notifyListeners(); }
+  Future<void> loadProfile() async { final result = await api.get('profile'); profile = Map<String, dynamic>.from((result['data'] as Map?) ?? const {}); notifyListeners(); }
+  Future<String?> saveProfile({required String fullName, required String phone, required String email}) async { try { final result = await api.put('profile', body: {'full_name': fullName, 'phone': phone, 'email': email}); profile = Map<String, dynamic>.from((result['data'] as Map?) ?? const {}); notifyListeners(); return null; } catch (e) { return e.toString(); } }
+  Future<String?> changePassword(String current, String next) async { try { await api.post('profile/password', body: {'current_password': current, 'new_password': next}); return null; } catch (e) { return e.toString(); } }
+  Future<void> loadNotifications() async { final result = await api.get('notifications'); notifications = (result['data'] as List?) ?? []; unreadNotifications = (result['unread'] as num?)?.toInt() ?? 0; notifyListeners(); }
+  Future<void> markNotificationRead(int id) async { if (id > 0) await api.post('notifications/$id/read'); await loadNotifications(); }
+  Future<void> markAllNotificationsRead() async { await api.post('notifications/read-all'); await loadNotifications(); }
   Future<void> loadCart() async { final result = await api.get('cart'); cart = Map<String, dynamic>.from((result['data'] as Map?) ?? const {}); notifyListeners(); }
   Future<void> addToCart(Product product, {int variationId = 0}) async { await api.post('cart/add', body: {'product_id': product.id, 'quantity': 1, 'variation_id': variationId}); await loadCart(); }
   Future<void> updateCartItem(Map<String, dynamic> item, double quantity) async { await api.patch('cart/update', body: {'product_id': item['id_product'], 'variation_id': item['id_variation'] ?? 0, 'cart_key': item['cart_key'] ?? '', 'quantity': quantity}); await loadCart(); }
