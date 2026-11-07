@@ -19,6 +19,12 @@ class _ProductScreenState extends State<ProductScreen> {
       const SizedBox(height: 10), Row(children: [Text('${product.price.toStringAsFixed(2)} ₺', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)), if (product.oldPrice > product.price) ...[const SizedBox(width: 8), Text('${product.oldPrice.toStringAsFixed(2)} ₺', style: const TextStyle(decoration: TextDecoration.lineThrough, color: Colors.grey))]]),
       if (product.variations.isNotEmpty) ...[const SizedBox(height: 20), const Text('Beden / renk seçimi', style: TextStyle(fontWeight: FontWeight.w700)), const SizedBox(height: 8), Wrap(spacing: 8, children: List.generate(product.variations.length, (i) { final item = product.variations[i]; final label = item is Map ? '${item['label'] ?? item['name'] ?? item['value'] ?? 'Seçenek'}' : '$item'; return ChoiceChip(label: Text(label), selected: selectedVariation == i, onSelected: (_) => setState(() => selectedVariation = i)); }))],
       if (product.description.isNotEmpty) Padding(padding: const EdgeInsets.symmetric(vertical: 20), child: Text(product.description)),
+      if (product.rating > 0 || product.reviews.isNotEmpty) ...[
+        const Divider(height: 32),
+        Text('Müşteri değerlendirmeleri${product.reviewCount > 0 ? ' (${product.reviewCount})' : ''}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+        if (product.rating > 0) Padding(padding: const EdgeInsets.only(top: 8), child: Text('★ ${product.rating.toStringAsFixed(1)} / 5')),
+        ...product.reviews.take(10).map((review) { final item = review is Map ? review : <String, dynamic>{}; return ListTile(contentPadding: EdgeInsets.zero, title: Text('${item['title'] ?? 'Değerlendirme'}'), subtitle: Text('${item['comment'] ?? ''}'), trailing: Text('★ ${item['rating'] ?? ''}')); }),
+      ],
       const SizedBox(height: 20), FilledButton(onPressed: product.inStock ? () async { await context.read<AppState>().addToCart(product, variationId: selectedVariation); if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ürün sepete eklendi'))); } : null, child: Text(product.inStock ? 'Sepete ekle' : 'Tükendi'))
     ]));
   }
