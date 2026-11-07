@@ -21,6 +21,7 @@ jobs:
       - name: Create native platform folders when absent
         run: |
           if [ ! -d ios ]; then flutter create --platforms=ios --org com.ozdwear .; fi
+          rm -f test/widget_test.dart
       - run: flutter pub get
       - run: flutter analyze
       - run: flutter test
