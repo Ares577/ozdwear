@@ -18,7 +18,7 @@ class _OrdersScreenState extends State<OrdersScreen> {
     if (rows.isEmpty) return const Center(child: Text('Henüz siparişiniz yok.'));
     return ListView.separated(padding: const EdgeInsets.all(16), itemCount: rows.length, separatorBuilder: (_, __) => const SizedBox(height: 10), itemBuilder: (_, i) {
       final order = rows[i];
-      return Card(child: ListTile(title: Text('#${order['reference'] ?? order['order_reference'] ?? order['id_order'] ?? ''}'), subtitle: Text('${order['status_label'] ?? order['status'] ?? ''}\n${order['date_add'] ?? order['date'] ?? ''}'), isThreeLine: true, trailing: Text('${order['total_formatted'] ?? order['total'] ?? ''}'));
+      return Card(child: ListTile(title: Text('#${order['reference'] ?? order['order_reference'] ?? order['id_order'] ?? ''}'), subtitle: Text('${order['status_label'] ?? order['status'] ?? ''}\n${order['date_add'] ?? order['date'] ?? ''}'), isThreeLine: true, trailing: Text('${order['total_formatted'] ?? order['total'] ?? ''}')));
     });
   }));
 }
