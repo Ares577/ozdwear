@@ -55,7 +55,8 @@ class OzdMobileApiService
 		if ($resource === 'addresses') self::addresses($method, $id, $data, $user);
 		if ($resource === 'coupon') self::coupon($method, $parts[1] ?? '', $data, $user);
 		if ($resource === 'checkout') self::checkout($method, $parts[1] ?? '', $data, $user);
-		if ($resource === 'orders') self::orders($method, $id, $user);
+		if ($resource === 'orders') self::orders($method, $id, $data, $parts[2] ?? '', $user);
+		if ($resource === 'messages') self::messages($method, $id, $data, $user);
 		if ($resource === 'notifications') self::notifications($method, $id, $parts[2] ?? '', $user);
 		if ($resource === 'devices' && $method === 'POST') self::device($data, $user);
 		self::respond(['success' => false, 'message' => 'Mobil API rotası bulunamadı'], 404);
@@ -228,12 +229,23 @@ class OzdMobileApiService
 		self::respond(['success' => false, 'message' => 'Adres işlemi geçersiz'], 405);
 	}
 
-	private static function orders(string $method, int $id, ?array $user): void
+	private static function orders(string $method, int $id, array $data, string $action, ?array $user): void
 	{
 		if (!$user) self::respond(['success' => false, 'message' => 'Giriş yapmalısınız'], 401);
 		$uid = (int) $user['id_user'];
 		if ($method === 'GET' && $id > 0) self::respond(['success' => true, 'data' => Order::getByIdForUser($id, $uid)]);
+		if ($method === 'POST' && $id > 0 && $action === 'cancel') { CancelRequest::ensureSchema(); self::respond(CancelRequest::create($id, $uid, (string) ($data['message'] ?? ''))); }
+		if ($method === 'POST' && $id > 0 && $action === 'return') { ReturnRequest::ensureSchema(); self::respond(ReturnRequest::create($id, $uid, (string) ($data['message'] ?? ''), [])); }
 		self::respond(['success' => true, 'data' => Order::getUserOrders($uid)]);
+	}
+
+	private static function messages(string $method, int $idOrder, array $data, ?array $user): void
+	{
+		if (!$user) self::respond(['success' => false, 'message' => 'Giriş yapmalısınız'], 401);
+		if ($method !== 'POST' || $idOrder <= 0) self::respond(['success' => false, 'message' => 'Mesaj işlemi geçersiz'], 405);
+		if (!Order::getByIdForUser($idOrder, (int) $user['id_user'])) self::respond(['success' => false, 'message' => 'Sipariş bulunamadı'], 404);
+		require_once dirname(__DIR__, 2) . '/core/Contact.php';
+		self::respond(Contact::submitOrder($idOrder, (int) $user['id_user'], (string) ($data['message'] ?? ''), ['subject' => (string) ($data['subject'] ?? 'Mobil uygulama mesajı')]));
 	}
 
 	private static function notifications(string $method, int $id, string $action, ?array $user): void
