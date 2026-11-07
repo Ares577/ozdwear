@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../state/app_state.dart';
 
 class CheckoutScreen extends StatefulWidget {
@@ -46,6 +47,11 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (!mounted) return;
       final message = (result is Map ? result['message'] : null) ?? 'Sipariş oluşturuldu.';
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$message')));
+      final redirect = result is Map ? '${result['redirect_url'] ?? result['payment_url'] ?? result['url'] ?? ''}' : '';
+      if (redirect.isNotEmpty) {
+        final uri = Uri.tryParse(redirect);
+        if (uri != null) await launchUrl(uri, mode: LaunchMode.externalApplication);
+      }
       Navigator.pop(context);
     } catch (error) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error'))); } finally { if (mounted) setState(() => busy = false); }
   }
