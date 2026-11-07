@@ -1,10 +1,105 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../widgets/product_card.dart';
 
-class HomeScreen extends StatefulWidget { const HomeScreen({super.key}); @override State<HomeScreen> createState() => _HomeScreenState(); }
+class HomeScreen extends StatefulWidget {
+  const HomeScreen({super.key});
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
 class _HomeScreenState extends State<HomeScreen> {
-  @override void initState() { super.initState(); WidgetsBinding.instance.addPostFrameCallback((_) => context.read<AppState>().loadProducts()); }
-  @override Widget build(BuildContext context) { final state = context.watch<AppState>(); final logo = (((state.bootstrap['logos'] as Map?)?['header'] as Map?)?['url'] ?? '').toString(); final slides = ((state.bootstrap['slides'] as Map?)?['hero'] as List?) ?? const []; return SafeArea(child: RefreshIndicator(onRefresh: state.loadProducts, child: CustomScrollView(slivers: [SliverAppBar(pinned: true, title: logo.isEmpty ? const Text('OZD WEAR', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5)) : Image.network(logo, height: 28, errorBuilder: (_, __, ___) => const Text('OZD WEAR')), actions: [IconButton(onPressed: () => Navigator.pushNamed(context, '/search'), icon: const Icon(Icons.search))], backgroundColor: const Color(0xfff7f7f5)), if (slides.isNotEmpty) SliverToBoxAdapter(child: SizedBox(height: 190, child: PageView.builder(itemCount: slides.length, itemBuilder: (_, i) { final slide = slides[i] as Map; final image = '${slide['image_url'] ?? ''}'; return Padding(padding: const EdgeInsets.fromLTRB(16, 12, 16, 4), child: ClipRRect(borderRadius: BorderRadius.circular(18), child: Stack(fit: StackFit.expand, children: [Image.network(image, fit: BoxFit.cover, errorBuilder: (_, __, ___) => Container(color: Colors.black12)), Container(decoration: const BoxDecoration(gradient: LinearGradient(begin: Alignment.bottomCenter, end: Alignment.topCenter, colors: [Colors.black54, Colors.transparent]))), Positioned(left: 18, bottom: 16, child: Text('${slide['title'] ?? ''}', style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800))) ]))); }))), SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.fromLTRB(20, 24, 20, 8), child: const Text('Yeni sezon', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800)))), if (state.categories.isNotEmpty) SliverToBoxAdapter(child: SizedBox(height: 46, child: ListView.separated(padding: const EdgeInsets.symmetric(horizontal: 16), scrollDirection: Axis.horizontal, itemCount: state.categories.length, separatorBuilder: (_, __) => const SizedBox(width: 8), itemBuilder: (_, i) { final item = state.categories[i] as Map; return ActionChip(label: Text('${item['name'] ?? ''}'), onPressed: () => state.searchProducts('${item['name'] ?? ''}')); }))), if (state.loading && state.products.isEmpty) const SliverFillRemaining(child: Center(child: CircularProgressIndicator())) else SliverPadding(padding: const EdgeInsets.all(16), sliver: SliverGrid(delegate: SliverChildBuilderDelegate((context, i) { final product = state.products[i]; return ProductCard(product: product, onTap: () => Navigator.pushNamed(context, '/product', arguments: product)); }, childCount: state.products.length), gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 18, crossAxisSpacing: 14, childAspectRatio: .63))) ]))); }
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => context.read<AppState>().loadProducts());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
+    final logos = (state.bootstrap['logos'] as Map?) ?? const {};
+    final headerLogo = ((logos['header'] as Map?)?['url'] ?? '').toString();
+    final slides = ((state.bootstrap['slides'] as Map?)?['hero'] as List?) ?? const [];
+    return SafeArea(
+      child: RefreshIndicator(
+        onRefresh: state.loadProducts,
+        child: CustomScrollView(
+          slivers: [
+            SliverAppBar(
+              pinned: true,
+              backgroundColor: const Color(0xfff7f7f5),
+              title: headerLogo.isEmpty
+                  ? const Text('OZD WEAR', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5))
+                  : CachedNetworkImage(imageUrl: headerLogo, height: 28, errorWidget: (_, __, ___) => const Text('OZD WEAR')),
+              actions: [IconButton(onPressed: () => Navigator.pushNamed(context, '/search'), icon: const Icon(Icons.search))],
+            ),
+            if (slides.isNotEmpty)
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: 190,
+                  child: PageView.builder(
+                    itemCount: slides.length,
+                    itemBuilder: (_, index) {
+                      final slide = Map<String, dynamic>.from(slides[index] as Map);
+                      final image = '${slide['image_url'] ?? slide['image'] ?? ''}';
+                      return Padding(
+                        padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(18),
+                          child: Stack(
+                            fit: StackFit.expand,
+                            children: [
+                              CachedNetworkImage(imageUrl: image, fit: BoxFit.cover, errorWidget: (_, __, ___) => Container(color: Colors.black12)),
+                              const DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.bottomCenter, end: Alignment.topCenter, colors: [Colors.black54, Colors.transparent]))),
+                              Positioned(left: 18, bottom: 16, child: Text('${slide['title'] ?? ''}', style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800))),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ),
+            const SliverToBoxAdapter(child: Padding(padding: EdgeInsets.fromLTRB(20, 24, 20, 8), child: Text('Yeni sezon', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800)))),
+            if (state.categories.isNotEmpty)
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: 46,
+                  child: ListView.separated(
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    scrollDirection: Axis.horizontal,
+                    itemCount: state.categories.length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 8),
+                    itemBuilder: (_, index) {
+                      final item = Map<String, dynamic>.from(state.categories[index] as Map);
+                      final id = int.tryParse('${item['id'] ?? item['id_category'] ?? 0}') ?? 0;
+                      return ActionChip(label: Text('${item['name'] ?? item['category_name'] ?? ''}'), onPressed: () => state.loadProducts(categoryId: id));
+                    },
+                  ),
+                ),
+              ),
+            if (state.loading && state.products.isEmpty)
+              const SliverFillRemaining(child: Center(child: CircularProgressIndicator()))
+            else
+              SliverPadding(
+                padding: const EdgeInsets.all(16),
+                sliver: SliverGrid(
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final product = state.products[index];
+                      return ProductCard(product: product, onTap: () => Navigator.pushNamed(context, '/product', arguments: product));
+                    },
+                    childCount: state.products.length,
+                  ),
+                  gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 18, crossAxisSpacing: 14, childAspectRatio: .63),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
 }
