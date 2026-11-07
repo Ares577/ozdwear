@@ -21,7 +21,13 @@ class OzdMobileApiModule extends ModuleBase
 
 	public function install(): bool
 	{
-		return $this->runSqlFile('install.sql');
+		if (!$this->runSqlFile('install.sql')) {
+			return false;
+		}
+		Settings::set('OZD_MOBILE_API_ENABLED', '1');
+		Settings::set('OZD_MOBILE_API_VERSION', '1.0.0');
+		OzdMobileApiService::ensureSchema();
+		return true;
 	}
 
 	public function uninstall(): bool

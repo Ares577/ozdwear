@@ -41,11 +41,3 @@ CREATE TABLE IF NOT EXISTS `mobile_api_logs` (
   KEY `route_date` (`route`,`date_add`),
   KEY `user_date` (`id_user`,`date_add`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
-
-INSERT INTO `settings` (`title`, `value`)
-VALUES ('OZD_MOBILE_API_ENABLED', '1')
-ON DUPLICATE KEY UPDATE `value` = VALUES(`value`);
-
-INSERT INTO `settings` (`title`, `value`)
-VALUES ('OZD_MOBILE_API_VERSION', '1.0.0')
-ON DUPLICATE KEY UPDATE `value` = VALUES(`value`);
