@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
+import 'order_detail_screen.dart';
 
 class OrdersScreen extends StatefulWidget {
   const OrdersScreen({super.key});
@@ -18,7 +19,8 @@ class _OrdersScreenState extends State<OrdersScreen> {
     if (rows.isEmpty) return const Center(child: Text('Henüz siparişiniz yok.'));
     return ListView.separated(padding: const EdgeInsets.all(16), itemCount: rows.length, separatorBuilder: (_, __) => const SizedBox(height: 10), itemBuilder: (_, i) {
       final order = rows[i];
-      return Card(child: ListTile(title: Text('#${order['reference'] ?? order['order_reference'] ?? order['id_order'] ?? ''}'), subtitle: Text('${order['status_label'] ?? order['status'] ?? ''}\n${order['date_add'] ?? order['date'] ?? ''}'), isThreeLine: true, trailing: Text('${order['total_formatted'] ?? order['total'] ?? ''}')));
+      final id = int.tryParse('${order['id_order'] ?? order['id']}') ?? 0;
+      return Card(child: ListTile(onTap: id > 0 ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => OrderDetailScreen(orderId: id))) : null, title: Text('#${order['reference'] ?? order['order_reference'] ?? order['id_order'] ?? ''}'), subtitle: Text('${order['status_label'] ?? order['status'] ?? ''}\n${order['date_add'] ?? order['date'] ?? ''}'), isThreeLine: true, trailing: Text('${order['total_formatted'] ?? order['total'] ?? ''}')));
     });
   }));
 }
