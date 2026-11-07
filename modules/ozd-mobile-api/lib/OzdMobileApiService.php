@@ -142,6 +142,7 @@ class OzdMobileApiService
 			$product['images'] = Product::getImages($id);
 			$basePrice = (float) ($product['price'] ?? $product['price_tax_inc'] ?? 0);
 			$product['variations'] = ProductVariation::getForStorefront($id, $basePrice);
+			$product['reviews'] = class_exists('ReviewsModule', false) ? ReviewsModule::getApprovedForProduct($id, 50) : [];
 			self::respond(['success' => true, 'data' => $product]);
 		}
 		$page = max(1, (int) ($_GET['page'] ?? 1));

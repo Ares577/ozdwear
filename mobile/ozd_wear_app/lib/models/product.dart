@@ -13,8 +13,9 @@ class Product {
   final bool inStock;
   final double rating;
   final int reviewCount;
+  final List<dynamic> reviews;
 
-  const Product({required this.id, required this.name, required this.image, required this.price, required this.oldPrice, this.description = '', this.images = const [], this.variations = const [], this.url = '', this.brand = '', this.category = '', this.inStock = true, this.rating = 0, this.reviewCount = 0});
+  const Product({required this.id, required this.name, required this.image, required this.price, required this.oldPrice, this.description = '', this.images = const [], this.variations = const [], this.url = '', this.brand = '', this.category = '', this.inStock = true, this.rating = 0, this.reviewCount = 0, this.reviews = const []});
 
   factory Product.fromJson(Map<String, dynamic> json) {
     int asInt(dynamic value) => int.tryParse('$value') ?? 0;
@@ -44,6 +45,7 @@ class Product {
       inStock: json['in_stock'] == null ? true : json['in_stock'] == true || json['in_stock'] == 1,
       rating: asDouble(json['rating']),
       reviewCount: asInt(json['review_count']),
+      reviews: (json['reviews'] as List?) ?? const [],
     );
   }
 }
