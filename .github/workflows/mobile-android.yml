@@ -18,6 +18,16 @@ jobs:
           flutter-version: '3.24.5'
           channel: stable
           cache: true
+      - name: Cache Android and Gradle dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.gradle/caches
+            ~/.gradle/wrapper
+            mobile/ozd_wear_app/.dart_tool
+          key: ${{ runner.os }}-ozdwear-${{ hashFiles('mobile/ozd_wear_app/pubspec.lock', 'mobile/ozd_wear_app/android/**/gradle-wrapper.properties') }}
+          restore-keys: |
+            ${{ runner.os }}-ozdwear-
       - name: Create native platform folders when absent
         run: |
           if [ ! -d android ] || [ ! -d ios ]; then flutter create --platforms=android,ios --org com.ozdwear .; fi
@@ -25,11 +35,11 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos
       - run: flutter test
-      - run: flutter build apk --debug
-      - run: flutter build apk --release
+      - run: timeout 15m flutter build apk --debug
+      - run: timeout 15m flutter build apk --release
         env:
           OZD_ANDROID_KEYSTORE_BASE64: ${{ secrets.OZD_ANDROID_KEYSTORE_BASE64 }}
-      - run: flutter build appbundle --release
+      - run: timeout 15m flutter build appbundle --release
       - uses: actions/upload-artifact@v4
         with:
           name: OZD-WEAR-Android
