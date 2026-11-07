@@ -76,6 +76,9 @@ class OzdMobileApiService
 		if ($action === 'forgot-password') {
 			self::respond(Customer::requestPasswordReset((string) ($data['email'] ?? '')));
 		}
+		if ($action === 'reset-password') {
+			self::respond(Customer::resetPassword((string) ($data['token'] ?? ''), (string) ($data['password'] ?? ''), (string) ($data['password_confirmation'] ?? $data['password2'] ?? '')));
+		}
 		if ($action === 'refresh') {
 			$raw = self::bearer();
 			$row = DB::getRowSafe('mobile_access_tokens', 'token_hash = ? AND token_type = ? AND revoked_at IS NULL AND expires_at > NOW()', [hash('sha256', $raw), 'refresh']);
@@ -111,7 +114,21 @@ class OzdMobileApiService
 
 	private static function bootstrap(): void
 	{
-		self::respond(['success' => true, 'data' => ['app_name' => 'OZD WEAR', 'version' => Settings::get('OZD_MOBILE_API_VERSION') ?: '1.0.0', 'theme' => ['background' => '#f7f7f5', 'ink' => '#111111', 'muted' => '#767676', 'accent' => '#111111']]]);
+		$logos = class_exists('SiteAssets', false) ? SiteAssets::getLogos() : [];
+		$slides = [];
+		if (class_exists('SliderModule', false) && method_exists('SliderModule', 'getList')) {
+			$slides = [
+				'hero' => SliderModule::getList('hero', true),
+				'promo' => SliderModule::getList('promo', true),
+			];
+		}
+		self::respond(['success' => true, 'data' => [
+			'app_name' => Settings::get('SITE_NAME') ?: 'OZD WEAR',
+			'version' => Settings::get('OZD_MOBILE_API_VERSION') ?: '1.0.0',
+			'logos' => $logos,
+			'slides' => $slides,
+			'theme' => ['background' => '#f7f7f5', 'ink' => '#111111', 'muted' => '#767676', 'accent' => '#111111'],
+		]]);
 	}
 
 	private static function products(string $method, int $id, array $data): void
@@ -128,8 +145,26 @@ class OzdMobileApiService
 		$page = max(1, (int) ($_GET['page'] ?? 1));
 		$limit = min(50, max(1, (int) ($_GET['limit'] ?? 20)));
 		$query = trim((string) ($_GET['q'] ?? ''));
-		$rows = $query !== '' ? Product::search($query, $limit, ($page - 1) * $limit, (string) ($_GET['sort'] ?? 'newest')) : Product::getActiveList(null, $limit, ($page - 1) * $limit, 'newest');
-		$total = $query !== '' ? (int) DB::getValue('SELECT COUNT(*) FROM products WHERE active = 1 AND (product_name LIKE ? OR reference LIKE ?)', ['%' . $query . '%', '%' . $query . '%']) : (int) DB::getValue('SELECT COUNT(*) FROM products WHERE active = 1');
+		$sort = (string) ($_GET['sort'] ?? 'newest');
+		$categoryId = max(0, (int) ($_GET['category_id'] ?? 0));
+		$brandId = max(0, (int) ($_GET['brand_id'] ?? 0));
+		$filter = (string) ($_GET['filter'] ?? '');
+		if ($query !== '') {
+			$rows = Product::search($query, $limit, ($page - 1) * $limit, $sort);
+		} elseif ($filter === 'discounted') {
+			$rows = Product::getDiscountedList($limit, ($page - 1) * $limit, $sort);
+		} elseif ($filter === 'top-rated') {
+			$rows = Product::getTopRatedList($limit, ($page - 1) * $limit);
+		} else {
+			$rows = Product::getActiveList($categoryId > 0 ? $categoryId : null, $limit, ($page - 1) * $limit, $sort, $brandId > 0 ? $brandId : null);
+		}
+		$countSql = 'SELECT COUNT(*) FROM products WHERE active = 1';
+		$countParams = [];
+		if ($query !== '') { $countSql .= ' AND (product_name LIKE ? OR reference LIKE ?)'; $countParams = ['%' . $query . '%', '%' . $query . '%']; }
+		if ($categoryId > 0 && $query === '' && $filter === '') { $countSql .= ' AND id_category = ?'; $countParams[] = $categoryId; }
+		if ($brandId > 0 && $query === '' && $filter === '') { $countSql .= ' AND id_brand = ?'; $countParams[] = $brandId; }
+		if ($filter === 'discounted') $countSql .= ' AND old_price > price';
+		$total = (int) DB::getValue($countSql, $countParams);
 		self::respond(['success' => true, 'data' => $rows, 'meta' => ['page' => $page, 'limit' => $limit, 'total' => $total, 'query' => $query]]);
 	}
 
@@ -209,7 +244,7 @@ class OzdMobileApiService
 
 	private static function authenticate(string $route, string $method): ?array
 	{
-		if (in_array($route, ['auth/login', 'auth/register', 'auth/refresh', 'auth/forgot-password'], true) || $route === 'bootstrap' || $route === 'products' || strpos($route, 'products/') === 0 || $route === 'categories') return null;
+		if (in_array($route, ['auth/login', 'auth/register', 'auth/refresh', 'auth/forgot-password', 'auth/reset-password'], true) || $route === 'bootstrap' || $route === 'products' || strpos($route, 'products/') === 0 || $route === 'categories') return null;
 		$raw = self::bearer();
 		if ($raw === '') self::respond(['success' => false, 'message' => 'Bearer token gerekli'], 401);
 		$row = DB::getRowSafe('mobile_access_tokens', 'token_hash = ? AND token_type = ? AND revoked_at IS NULL AND expires_at > NOW()', [hash('sha256', $raw), 'access']);

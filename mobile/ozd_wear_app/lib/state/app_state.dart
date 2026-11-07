@@ -10,6 +10,10 @@ class AppState extends ChangeNotifier {
   bool loading = false;
   bool signedIn = false;
   List<dynamic> favorites = [];
+  List<dynamic> categories = [];
+  Map<String, dynamic> bootstrap = {};
+  Map<String, dynamic> cart = {};
+  String? lastError;
 
   Future<void> hydrateSession() async {
     try {
@@ -18,9 +22,22 @@ class AppState extends ChangeNotifier {
     } catch (_) { await session.clear(); }
   }
 
+  Future<void> loadBootstrap() async {
+    try {
+      final result = await api.get('bootstrap');
+      bootstrap = Map<String, dynamic>.from((result['data'] as Map?) ?? const {});
+      final categoryResult = await api.get('categories');
+      categories = (categoryResult['data'] as List?) ?? const [];
+      notifyListeners();
+    } catch (error) {
+      lastError = error.toString();
+      notifyListeners();
+    }
+  }
+
   Future<void> loadProducts() async {
     loading = true; notifyListeners();
-    try { final result = await api.get('products', query: {'page': '1', 'limit': '24'}); products = ((result['data'] as List?) ?? []).whereType<Map>().map((e) => Product.fromJson(Map<String, dynamic>.from(e))).toList(); } finally { loading = false; notifyListeners(); }
+    try { final result = await api.get('products', query: {'page': '1', 'limit': '24'}); products = ((result['data'] as List?) ?? []).whereType<Map>().map((e) => Product.fromJson(Map<String, dynamic>.from(e))).toList(); } catch (error) { lastError = error.toString(); } finally { loading = false; notifyListeners(); }
   }
 
   Future<void> searchProducts(String query) async {
@@ -45,7 +62,11 @@ class AppState extends ChangeNotifier {
     } catch (e) { return e.toString(); }
   }
   Future<void> logout() async { try { await api.post('auth/logout'); } catch (_) {} await session.clear(); signedIn = false; notifyListeners(); }
-  Future<void> addToCart(Product product, {int variationId = 0}) async { await api.post('cart/add', body: {'product_id': product.id, 'quantity': 1, 'variation_id': variationId}); }
+  Future<void> loadCart() async { final result = await api.get('cart'); cart = Map<String, dynamic>.from((result['data'] as Map?) ?? const {}); notifyListeners(); }
+  Future<void> addToCart(Product product, {int variationId = 0}) async { await api.post('cart/add', body: {'product_id': product.id, 'quantity': 1, 'variation_id': variationId}); await loadCart(); }
+  Future<void> updateCartItem(Map<String, dynamic> item, double quantity) async { await api.patch('cart/update', body: {'product_id': item['id_product'], 'variation_id': item['id_variation'] ?? 0, 'cart_key': item['cart_key'] ?? '', 'quantity': quantity}); await loadCart(); }
+  Future<void> removeCartItem(Map<String, dynamic> item) async { await api.delete('cart/remove', body: {'product_id': item['id_product'], 'variation_id': item['id_variation'] ?? 0, 'cart_key': item['cart_key'] ?? ''}); await loadCart(); }
+  Future<void> clearCart() async { await api.delete('cart/clear'); await loadCart(); }
   Future<void> loadFavorites() async { final result = await api.get('favorites'); favorites = (result['data'] as List?) ?? []; notifyListeners(); }
   Future<void> toggleFavorite(int productId) async { await api.post('favorites/$productId'); await loadFavorites(); }
 }
