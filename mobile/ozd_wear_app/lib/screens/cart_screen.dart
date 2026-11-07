@@ -2,6 +2,7 @@ import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
+import 'checkout_screen.dart';
 
 class CartScreen extends StatefulWidget {
   const CartScreen({super.key});
@@ -18,7 +19,7 @@ class _CartScreenState extends State<CartScreen> {
       const Text('Sepetim', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800)), const SizedBox(height: 18),
       if (items.isEmpty) const Padding(padding: EdgeInsets.symmetric(vertical: 70), child: Center(child: Text('Sepetiniz boş.'))) else ...items.map((item) => _cartItem(state, item)),
       const Divider(height: 30), _row('Ara toplam', data['subtotal_formatted'] ?? data['subtotal']), _row('Kargo', data['shipping_formatted'] ?? data['shipping']), _row('Toplam', data['grand_total_formatted'] ?? data['grand_total'], bold: true), const SizedBox(height: 18),
-      if (items.isNotEmpty) FilledButton(onPressed: () => ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ödeme ekranına geçiliyor.'))), child: const Text('Ödemeye geç')),
+      if (items.isNotEmpty) FilledButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CheckoutScreen())), child: const Text('Ödemeye geç')),
     ])));
   }
   Widget _cartItem(AppState state, Map<String, dynamic> item) {
