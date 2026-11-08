@@ -8,6 +8,7 @@ class Product {
   final List<dynamic> images;
   final List<dynamic> variations;
   final List<dynamic> variationGroups;
+  final List<dynamic> optionGroups;
   final String url;
   final String brand;
   final String category;
@@ -16,8 +17,11 @@ class Product {
   final int reviewCount;
   final List<dynamic> reviews;
   final List<dynamic> relatedProducts;
+  final String saleUnit;
+  final bool isM2;
+  final bool isPack;
 
-  const Product({required this.id, required this.name, required this.image, required this.price, required this.oldPrice, this.description = '', this.images = const [], this.variations = const [], this.variationGroups = const [], this.url = '', this.brand = '', this.category = '', this.inStock = true, this.rating = 0, this.reviewCount = 0, this.reviews = const [], this.relatedProducts = const []});
+  const Product({required this.id, required this.name, required this.image, required this.price, required this.oldPrice, this.description = '', this.images = const [], this.variations = const [], this.variationGroups = const [], this.optionGroups = const [], this.url = '', this.brand = '', this.category = '', this.inStock = true, this.rating = 0, this.reviewCount = 0, this.reviews = const [], this.relatedProducts = const [], this.saleUnit = 'piece', this.isM2 = false, this.isPack = false});
 
   factory Product.fromJson(Map<String, dynamic> json) {
     int asInt(dynamic value) => int.tryParse('$value') ?? 0;
@@ -35,7 +39,9 @@ class Product {
     final rawVariations = json['variations'] ?? json['variation_items'] ?? json['variation_groups'];
     final variationMap = rawVariations is Map ? Map<String, dynamic>.from(rawVariations) : const <String, dynamic>{};
     final variationItems = rawVariations is Map ? ((variationMap['items'] as List?) ?? const []) : (rawVariations is List ? rawVariations : const []);
-    final variationGroups = rawVariations is Map ? ((variationMap['groups'] as List?) ?? const []) : const [];
+    final variationGroups = rawVariations is Map ? ((variationMap['groups'] as List?) ?? const []) : ((json['variation_groups'] as List?) ?? const []);
+    final rawOptions = json['option_groups'] ?? json['options'] ?? const [];
+    final optionGroups = rawOptions is Map ? ((rawOptions['groups'] as List?) ?? const []) : (rawOptions is List ? rawOptions : const []);
     return Product(
       id: asInt(json['id_product'] ?? json['id']),
       name: '${json['name'] ?? json['product_name'] ?? ''}',
@@ -46,6 +52,7 @@ class Product {
       images: parsedImages,
       variations: variationItems,
       variationGroups: variationGroups,
+      optionGroups: optionGroups,
       url: '${json['url'] ?? ''}',
       brand: '${json['brand_name'] ?? json['brand'] ?? ''}',
       category: '${json['category_name'] ?? json['category'] ?? ''}',
@@ -54,6 +61,9 @@ class Product {
       reviewCount: asInt(json['review_count']),
       reviews: (json['reviews'] as List?) ?? const [],
       relatedProducts: (json['related_products'] as List?) ?? const [],
+      saleUnit: '${json['sale_unit'] ?? 'piece'}',
+      isM2: json['is_m2'] == true || json['is_m2'] == 1,
+      isPack: json['is_pack'] == true || json['is_pack'] == 1,
     );
   }
 }

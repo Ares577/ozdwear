@@ -114,7 +114,7 @@ class AppState extends ChangeNotifier {
   Future<void> markNotificationRead(int id) async { if (id > 0) await api.post('notifications/$id/read'); await loadNotifications(); }
   Future<void> markAllNotificationsRead() async { await api.post('notifications/read-all'); await loadNotifications(); }
   Future<void> loadCart() async { final result = await api.get('cart'); cart = Map<String, dynamic>.from((result['data'] as Map?) ?? const {}); notifyListeners(); }
-  Future<void> addToCart(Product product, {int variationId = 0}) async { await api.post('cart/add', body: {'product_id': product.id, 'quantity': 1, 'variation_id': variationId}); await loadCart(); }
+  Future<void> addToCart(Product product, {int variationId = 0, Map<String, String> options = const {}}) async { await api.post('cart/add', body: {'product_id': product.id, 'quantity': 1, 'variation_id': variationId, 'options': options}); await loadCart(); }
   Future<void> updateCartItem(Map<String, dynamic> item, double quantity) async { await api.patch('cart/update', body: {'product_id': item['id_product'], 'variation_id': item['id_variation'] ?? 0, 'cart_key': item['cart_key'] ?? '', 'quantity': quantity}); await loadCart(); }
   Future<void> removeCartItem(Map<String, dynamic> item) async { await api.delete('cart/remove', body: {'product_id': item['id_product'], 'variation_id': item['id_variation'] ?? 0, 'cart_key': item['cart_key'] ?? ''}); await loadCart(); }
   Future<void> clearCart() async { await api.delete('cart/clear'); await loadCart(); }

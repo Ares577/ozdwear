@@ -7,170 +7,114 @@ import '../widgets/product_card.dart';
 
 class ProductScreen extends StatefulWidget {
   const ProductScreen({super.key});
-
-  @override
-  State<ProductScreen> createState() => _ProductScreenState();
+  @override State<ProductScreen> createState() => _ProductScreenState();
 }
 
 class _ProductScreenState extends State<ProductScreen> {
+  Product? product;
   int selectedImage = 0;
   int selectedVariation = 0;
   int reviewRating = 5;
   final reviewTitle = TextEditingController();
   final reviewComment = TextEditingController();
+  final Map<String, String> selectedOptions = {};
+  bool loading = true;
   bool reviewBusy = false;
-  Product? detail;
 
   @override
-  void dispose() {
-    reviewTitle.dispose();
-    reviewComment.dispose();
-    super.dispose();
-  }
-
-  Future<void> _submitReview(Product product) async {
-    if (reviewComment.text.trim().length < 10) {
-      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Yorum en az 10 karakter olmalı.')));
-      return;
-    }
-    setState(() => reviewBusy = true);
-    try {
-      final result = await context.read<AppState>().api.post('reviews', body: {'product_id': product.id, 'rating': reviewRating, 'title': reviewTitle.text.trim(), 'comment': reviewComment.text.trim()});
-      if (!mounted) return;
-      reviewTitle.clear();
-      reviewComment.clear();
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${result['message'] ?? 'Yorumunuz alındı.'}')));
-    } catch (error) {
-      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error')));
-    } finally {
-      if (mounted) setState(() => reviewBusy = false);
-    }
-  }
+  void dispose() { reviewTitle.dispose(); reviewComment.dispose(); super.dispose(); }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (detail != null) return;
-    final fallback = ModalRoute.of(context)!.settings.arguments as Product;
-    context.read<AppState>().loadProductDetail(fallback).then((value) {
-      if (mounted) setState(() => detail = value);
-    });
+    if (product != null) return;
+    final fallback = ModalRoute.of(context)?.settings.arguments as Product?;
+    if (fallback == null) return;
+    product = fallback;
+    _loadDetail(fallback);
+  }
+
+  Future<void> _loadDetail(Product fallback) async {
+    try {
+      final loaded = await context.read<AppState>().loadProductDetail(fallback);
+      if (mounted) setState(() { product = loaded; loading = false; });
+    } catch (_) {
+      if (mounted) setState(() => loading = false);
+    }
+  }
+
+  Future<void> _submitReview(Product item) async {
+    if (reviewComment.text.trim().length < 10) { ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Yorum en az 10 karakter olmalı.'))); return; }
+    setState(() => reviewBusy = true);
+    try {
+      final result = await context.read<AppState>().api.post('reviews', body: {'product_id': item.id, 'rating': reviewRating, 'title': reviewTitle.text.trim(), 'comment': reviewComment.text.trim()});
+      if (!mounted) return;
+      reviewTitle.clear(); reviewComment.clear();
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${result['message'] ?? 'Yorumunuz alındı.'}')));
+    } catch (error) { if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error'))); }
+    finally { if (mounted) setState(() => reviewBusy = false); }
   }
 
   @override
   Widget build(BuildContext context) {
-    final product = detail ?? ModalRoute.of(context)!.settings.arguments as Product;
-    final selectedItem = product.variations.isNotEmpty && selectedVariation < product.variations.length && product.variations[selectedVariation] is Map ? Map<String, dynamic>.from(product.variations[selectedVariation] as Map) : const <String, dynamic>{};
-    final selectedInStock = selectedItem.isEmpty || selectedItem['in_stock'] == null || selectedItem['in_stock'] == true || selectedItem['in_stock'] == 1;
-    final selectedPrice = selectedItem['price'];
-    final gallery = <String>[
-      if (product.image.isNotEmpty) product.image,
-      ...product.images.map((item) => item is Map ? '${item['url'] ?? item['image_url'] ?? ''}' : '$item'),
-    ].where((url) => url.isNotEmpty).toSet().toList();
-
+    final item = product;
+    if (item == null) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    final gallery = <String>[item.image, ...item.images.map((value) => value is Map ? '${value['url'] ?? ''}' : '$value')].where((url) => url.isNotEmpty).toSet().toList();
+    final variation = item.variations.isNotEmpty && selectedVariation < item.variations.length && item.variations[selectedVariation] is Map
+        ? Map<String, dynamic>.from(item.variations[selectedVariation] as Map) : const <String, dynamic>{};
+    final price = double.tryParse('${variation['price'] ?? item.price}') ?? item.price;
+    final selectedInStock = variation.isEmpty || variation['in_stock'] == null || variation['in_stock'] == true || variation['in_stock'] == 1;
+    final optionData = item.optionGroups;
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('Ürün'),
-        actions: [
-          IconButton(
-            onPressed: () async {
-              try {
-                await context.read<AppState>().toggleFavorite(product.id);
-                if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Favoriler güncellendi')));
-              } catch (e) {
-                if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(e.toString())));
-              }
-            },
-            icon: const Icon(Icons.favorite_border),
-          ),
+      appBar: AppBar(title: const Text('Ürün'), actions: [
+        IconButton(onPressed: () async {
+          try { await context.read<AppState>().toggleFavorite(item.id); if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Favoriler güncellendi'))); }
+          catch (error) { if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error'))); }
+        }, icon: const Icon(Icons.favorite_border)),
+      ]),
+      body: ListView(padding: const EdgeInsets.fromLTRB(20, 8, 20, 32), children: [
+        if (loading) const LinearProgressIndicator(minHeight: 2),
+        AspectRatio(aspectRatio: .86, child: gallery.isEmpty ? const Icon(Icons.image_outlined, size: 80) : CachedNetworkImage(imageUrl: gallery[selectedImage < gallery.length ? selectedImage : 0], fit: BoxFit.cover, errorWidget: (_, __, ___) => const Icon(Icons.image_outlined))),
+        if (gallery.length > 1) SizedBox(height: 74, child: ListView.separated(scrollDirection: Axis.horizontal, padding: const EdgeInsets.only(top: 10), itemCount: gallery.length, separatorBuilder: (_, __) => const SizedBox(width: 8), itemBuilder: (_, index) => GestureDetector(onTap: () => setState(() => selectedImage = index), child: Container(width: 64, decoration: BoxDecoration(border: Border.all(color: selectedImage == index ? Colors.black : Colors.transparent, width: 2)), child: CachedNetworkImage(imageUrl: gallery[index], fit: BoxFit.cover))))),
+        const SizedBox(height: 20),
+        Text(item.name, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
+        if (item.brand.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 6), child: Text(item.brand.toUpperCase(), style: const TextStyle(letterSpacing: 1.2, color: Colors.grey, fontSize: 12))),
+        const SizedBox(height: 10),
+        Row(children: [Text('${price.toStringAsFixed(2)} ₺${item.saleUnit == 'piece' ? '' : ' / ${item.saleUnit}'}', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)), if (item.oldPrice > price) ...[const SizedBox(width: 8), Text('${item.oldPrice.toStringAsFixed(2)} ₺', style: const TextStyle(decoration: TextDecoration.lineThrough, color: Colors.grey))]]),
+        if (item.variations.isNotEmpty) ...[
+          const SizedBox(height: 20), const Text('Beden / renk seçimi', style: TextStyle(fontWeight: FontWeight.w700)), const SizedBox(height: 8),
+          Wrap(spacing: 8, children: List.generate(item.variations.length, (index) { final value = item.variations[index]; final label = value is Map ? '${value['label'] ?? value['name'] ?? value['value'] ?? 'Seçenek'}' : '$value'; final stock = value is Map ? (int.tryParse('${value['stock'] ?? 1}') ?? 1) : 1; return ChoiceChip(label: Text(stock > 0 ? label : '$label (Tükendi)'), selected: selectedVariation == index, onSelected: stock > 0 ? (_) => setState(() => selectedVariation = index) : null); })),
         ],
-      ),
-      body: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 8, 20, 32),
-        children: [
-          AspectRatio(
-            aspectRatio: .86,
-            child: gallery.isEmpty
-                ? const Icon(Icons.image_outlined, size: 80)
-                : CachedNetworkImage(imageUrl: gallery[selectedImage.clamp(0, gallery.length - 1)], fit: BoxFit.cover, errorWidget: (_, __, ___) => const Icon(Icons.image_outlined)),
-          ),
-          if (gallery.length > 1)
-            SizedBox(
-              height: 74,
-              child: ListView.separated(
-                scrollDirection: Axis.horizontal,
-                padding: const EdgeInsets.only(top: 10),
-                itemCount: gallery.length,
-                separatorBuilder: (_, __) => const SizedBox(width: 8),
-                itemBuilder: (_, i) => GestureDetector(
-                  onTap: () => setState(() => selectedImage = i),
-                  child: Container(width: 64, decoration: BoxDecoration(border: Border.all(color: selectedImage == i ? Colors.black : Colors.transparent, width: 2)), child: CachedNetworkImage(imageUrl: gallery[i], fit: BoxFit.cover)),
-                ),
-              ),
-            ),
-          const SizedBox(height: 20),
-          Text(product.name, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w800)),
-          if (product.brand.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 6), child: Text(product.brand.toUpperCase(), style: const TextStyle(letterSpacing: 1.2, color: Colors.grey, fontSize: 12))),
-          const SizedBox(height: 10),
-          Row(children: [Text('${(selectedPrice is num ? selectedPrice.toDouble() : product.price).toStringAsFixed(2)} ₺', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)), if (product.oldPrice > product.price) ...[const SizedBox(width: 8), Text('${product.oldPrice.toStringAsFixed(2)} ₺', style: const TextStyle(decoration: TextDecoration.lineThrough, color: Colors.grey))]]),
-          if (product.variations.isNotEmpty) ...[
-            const SizedBox(height: 20),
-            Text(product.variationGroups.isNotEmpty ? product.variationGroups.map((group) => group is Map ? '${group['name'] ?? ''}' : '').where((name) => name.isNotEmpty).join(' / ') : 'Beden / renk seçimi', style: const TextStyle(fontWeight: FontWeight.w700)),
-            const SizedBox(height: 8),
-            Wrap(
-              spacing: 8,
-              children: List.generate(product.variations.length, (i) {
-                final item = product.variations[i];
-                final map = item is Map ? Map<String, dynamic>.from(item) : <String, dynamic>{};
-                final options = map['options'] is Map ? Map<String, dynamic>.from(map['options']) : const <String, dynamic>{};
-                final label = options.isNotEmpty ? options.entries.map((entry) => '${entry.key}: ${entry.value}').join(' · ') : '${map['label'] ?? map['name'] ?? map['value'] ?? item}';
-                final available = map['in_stock'] == null ? true : map['in_stock'] == true || map['in_stock'] == 1;
-                return ChoiceChip(label: Text(label), selected: selectedVariation == i, onSelected: available ? (_) => setState(() => selectedVariation = i) : null);
-              }),
-            ),
-          ],
-          if (product.description.isNotEmpty) Padding(padding: const EdgeInsets.symmetric(vertical: 20), child: Text(product.description)),
-          if (product.rating > 0 || product.reviews.isNotEmpty) ...[
-            const Divider(height: 32),
-            Text('Müşteri değerlendirmeleri${product.reviewCount > 0 ? ' (${product.reviewCount})' : ''}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-            if (product.rating > 0) Padding(padding: const EdgeInsets.only(top: 8), child: Text('★ ${product.rating.toStringAsFixed(1)} / 5')),
-            ...product.reviews.take(10).map((review) { final item = review is Map ? review : <String, dynamic>{}; return ListTile(contentPadding: EdgeInsets.zero, title: Text('${item['title'] ?? 'Değerlendirme'}'), subtitle: Text('${item['comment'] ?? ''}'), trailing: Text('★ ${item['rating'] ?? ''}')); }),
-          ],
-          if (context.watch<AppState>().signedIn) ...[
-            const Divider(height: 32),
-            const Text('Değerlendirme yaz', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 8),
-            Wrap(spacing: 4, children: List.generate(5, (i) => IconButton(onPressed: () => setState(() => reviewRating = i + 1), icon: Icon(i < reviewRating ? Icons.star : Icons.star_border), color: Colors.black, tooltip: '${i + 1} yıldız'))),
-            TextField(controller: reviewTitle, decoration: const InputDecoration(labelText: 'Başlık')),
-            const SizedBox(height: 8),
-            TextField(controller: reviewComment, maxLines: 4, decoration: const InputDecoration(labelText: 'Yorumunuz', border: OutlineInputBorder())),
-            const SizedBox(height: 10),
-            FilledButton(onPressed: reviewBusy ? null : () => _submitReview(product), child: Text(reviewBusy ? 'Gönderiliyor...' : 'Yorumu gönder')),
-          ],
-          if (product.relatedProducts.isNotEmpty) ...[
-            const Divider(height: 34),
-            const Text('Bunları da beğenebilirsiniz', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
-            const SizedBox(height: 12),
-            SizedBox(height: 245, child: ListView.separated(scrollDirection: Axis.horizontal, itemCount: product.relatedProducts.length, separatorBuilder: (_, __) => const SizedBox(width: 12), itemBuilder: (_, i) {
-              final related = product.relatedProducts[i];
-              if (related is! Map) return const SizedBox.shrink();
-              return SizedBox(width: 150, child: ProductCard(product: Product.fromJson(Map<String, dynamic>.from(related)), onTap: () => Navigator.pushReplacementNamed(context, '/product', arguments: Product.fromJson(Map<String, dynamic>.from(related)))));
-            })),
-          ],
-          const SizedBox(height: 20),
-          FilledButton(
-            onPressed: product.inStock && selectedInStock
-                ? () async {
-                    final variation = product.variations.isNotEmpty ? product.variations[selectedVariation] : null;
-                    final variationId = variation is Map ? int.tryParse('${variation['id_variation'] ?? variation['id'] ?? 0}') ?? 0 : 0;
-                    await context.read<AppState>().addToCart(product, variationId: variationId);
-                    if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ürün sepete eklendi')));
-                  }
-                : null,
-            child: Text(!product.inStock || !selectedInStock ? 'Tükendi' : 'Sepete ekle'),
-          ),
+        if (optionData.isNotEmpty) ...[
+          const SizedBox(height: 20), const Text('Ürün seçenekleri', style: TextStyle(fontWeight: FontWeight.w700)),
+          ...optionData.whereType<Map>().map((group) { final name = '${group['name'] ?? ''}'; final values = ((group['values'] as List?) ?? const []).map((value) => '$value').toList(); return Padding(padding: const EdgeInsets.only(top: 10), child: DropdownButtonFormField<String>(value: selectedOptions[name], decoration: InputDecoration(labelText: name, border: const OutlineInputBorder()), items: values.map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(), onChanged: (value) => setState(() { if (value != null) selectedOptions[name] = value; }))); }),
         ],
-      ),
+        if (item.isM2) const Padding(padding: EdgeInsets.only(top: 14), child: Text('Bu ürün ölçüye göre hesaplanır. Genişlik ve uzunluk bilgilerini ödeme adımında kontrol edin.')),
+        if (item.description.isNotEmpty) Padding(padding: const EdgeInsets.symmetric(vertical: 20), child: Text(item.description)),
+        if (item.rating > 0 || item.reviews.isNotEmpty) ...[
+          const Divider(height: 32), Text('Müşteri değerlendirmeleri${item.reviewCount > 0 ? ' (${item.reviewCount})' : ''}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+          if (item.rating > 0) Padding(padding: const EdgeInsets.only(top: 8), child: Text('★ ${item.rating.toStringAsFixed(1)} / 5')),
+          ...item.reviews.take(10).map((review) { final value = review is Map ? review : <String, dynamic>{}; return ListTile(contentPadding: EdgeInsets.zero, title: Text('${value['title'] ?? 'Değerlendirme'}'), subtitle: Text('${value['comment'] ?? ''}'), trailing: Text('★ ${value['rating'] ?? ''}')); }),
+        ],
+        if (context.watch<AppState>().signedIn) ...[
+          const Divider(height: 32), const Text('Değerlendirme yaz', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+          const SizedBox(height: 8), Wrap(spacing: 4, children: List.generate(5, (index) => IconButton(onPressed: () => setState(() => reviewRating = index + 1), icon: Icon(index < reviewRating ? Icons.star : Icons.star_border), color: Colors.black))),
+          TextField(controller: reviewTitle, decoration: const InputDecoration(labelText: 'Başlık')), const SizedBox(height: 8),
+          TextField(controller: reviewComment, maxLines: 4, decoration: const InputDecoration(labelText: 'Yorumunuz', border: OutlineInputBorder())), const SizedBox(height: 10),
+          FilledButton(onPressed: reviewBusy ? null : () => _submitReview(item), child: Text(reviewBusy ? 'Gönderiliyor...' : 'Yorumu gönder')),
+        ],
+        if (item.relatedProducts.isNotEmpty) ...[
+          const Divider(height: 34), const Text('Bunları da beğenebilirsiniz', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)), const SizedBox(height: 12),
+          SizedBox(height: 245, child: ListView.separated(scrollDirection: Axis.horizontal, itemCount: item.relatedProducts.length, separatorBuilder: (_, __) => const SizedBox(width: 12), itemBuilder: (_, index) {
+            final related = item.relatedProducts[index];
+            if (related is! Map) return const SizedBox.shrink();
+            final relatedProduct = Product.fromJson(Map<String, dynamic>.from(related));
+            return SizedBox(width: 150, child: ProductCard(product: relatedProduct, onTap: () => Navigator.pushReplacementNamed(context, '/product', arguments: relatedProduct)));
+          })),
+        ],
+        const SizedBox(height: 20),
+        FilledButton(onPressed: item.inStock && selectedInStock ? () async { try { final options = <String, String>{...selectedOptions}; await context.read<AppState>().addToCart(item, variationId: int.tryParse('${variation['id_variation'] ?? variation['id'] ?? 0}') ?? 0, options: options); if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Ürün sepete eklendi'))); } catch (error) { if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error'))); } } : null, child: Text(!item.inStock || !selectedInStock ? 'Tükendi' : 'Sepete ekle')),
+      ]),
     );
   }
 }

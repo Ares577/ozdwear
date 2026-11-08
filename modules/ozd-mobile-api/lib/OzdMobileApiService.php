@@ -200,6 +200,7 @@ class OzdMobileApiService
 			$product['images'] = Product::getImages($id);
 			$basePrice = (float) ($product['price'] ?? $product['price_tax_inc'] ?? 0);
 			$product['variations'] = ProductVariation::getForStorefront($id, $basePrice);
+			$product['option_groups'] = class_exists('ProductOption', false) ? ProductOption::getForStorefront($id) : ['has_options' => false, 'groups' => []];
 			$product['reviews'] = class_exists('ReviewsModule', false) ? ReviewsModule::getApprovedForProduct($id, 50) : [];
 			$related = Product::getRelatedForProduct($product, 12);
 			$product['related_products'] = array_map(static function (array $row): array { return self::normalizeProductAssets($row); }, (array) ($related['products'] ?? []));
