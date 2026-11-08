@@ -11,6 +11,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+  bool popupRequested = false;
   @override
   void initState() {
     super.initState();
@@ -25,6 +26,10 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
+    if (!popupRequested && state.popup.isNotEmpty) {
+      popupRequested = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _showPopup(state.popup));
+    }
     final logos = (state.bootstrap['logos'] as Map?) ?? const {};
     final headerLogo = ((logos['header'] as Map?)?['url'] ?? '').toString();
     final slidesMap = (state.bootstrap['slides'] as Map?) ?? const {};
@@ -155,5 +160,21 @@ class _HomeScreenState extends State<HomeScreen> {
         ]),
       ),
     );
+  }
+
+  Future<void> _showPopup(Map<String, dynamic> campaign) async {
+    if (!mounted) return;
+    final image = '${campaign['image_url'] ?? ''}';
+    final imageLink = '${campaign['image_link_url'] ?? campaign['button_url'] ?? ''}';
+    final button = '${campaign['button_text'] ?? ''}';
+    final target = imageLink.isNotEmpty ? imageLink : '${campaign['button_url'] ?? ''}';
+    await showDialog<void>(context: context, builder: (_) => AlertDialog(
+      title: Text('${campaign['title'] ?? ''}'),
+      content: SingleChildScrollView(child: Column(mainAxisSize: MainAxisSize.min, children: [
+        if (image.isNotEmpty) GestureDetector(onTap: target.isEmpty ? null : () { Navigator.pop(context); _open(target); }, child: ClipRRect(borderRadius: BorderRadius.circular(12), child: CachedNetworkImage(imageUrl: image, fit: BoxFit.cover))),
+        if ('${campaign['body_html'] ?? ''}'.trim().isNotEmpty) Padding(padding: const EdgeInsets.only(top: 12), child: Text('${campaign['body_html']}')),
+      ])),
+      actions: [if (button.isNotEmpty && target.isNotEmpty) TextButton(onPressed: () { Navigator.pop(context); _open(target); }, child: Text(button)), TextButton(onPressed: () => Navigator.pop(context), child: const Text('Kapat'))],
+    ));
   }
 }

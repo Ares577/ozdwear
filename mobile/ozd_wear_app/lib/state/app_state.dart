@@ -15,6 +15,7 @@ class AppState extends ChangeNotifier {
   List<dynamic> categories = [];
   List<dynamic> brands = [];
   Map<String, dynamic> bootstrap = {};
+  Map<String, dynamic> popup = {};
   Map<String, dynamic> cart = {};
   Map<String, dynamic> profile = {};
   List<dynamic> notifications = [];
@@ -41,6 +42,7 @@ class AppState extends ChangeNotifier {
       categories = (categoryResult['data'] as List?) ?? const [];
       final brandResult = await api.get('brands');
       brands = (brandResult['data'] as List?) ?? const [];
+      try { final popupResult = await api.get('popup'); popup = Map<String, dynamic>.from((popupResult['campaign'] as Map?) ?? const {}); } catch (_) { popup = {}; }
       notifyListeners();
     } catch (error) {
       lastError = error.toString();
