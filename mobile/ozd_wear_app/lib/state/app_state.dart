@@ -150,8 +150,10 @@ class AppState extends ChangeNotifier {
       final account = await signIn.signIn();
       if (account == null) return 'Google girişi iptal edildi';
       final code = account.serverAuthCode;
-      if (code == null || code.isEmpty) return 'Google yetkilendirme kodu alınamadı';
-      final result = await api.post('auth/google', body: {'code': code});
+      final idToken = account.authentication.then((value) => value.idToken);
+      final token = code != null && code.isNotEmpty ? {'code': code} : {'id_token': (await idToken) ?? ''};
+      if ('${token.values.first}'.isEmpty) return 'Google kimlik doğrulama bilgisi alınamadı';
+      final result = await api.post('auth/google', body: token);
       await session.save(access: result['data']['access_token'], refresh: result['data']['refresh_token']);
       signedIn = true;
       await Future.wait([loadProfile(), loadNotifications(), loadFavorites(), loadCart()]);

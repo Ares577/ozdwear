@@ -213,8 +213,9 @@ class OzdMobileApiService
 				self::respond(['success' => false, 'message' => 'Google ile giriş şu anda yapılandırılmamış'], 503);
 			}
 			$code = trim((string) ($data['code'] ?? ''));
-			if ($code === '') self::respond(['success' => false, 'message' => 'Google yetkilendirme kodu gerekli'], 422);
-			$google = GoogleLoginModule::exchangeCode($code);
+			$idToken = trim((string) ($data['id_token'] ?? ''));
+			if ($code === '' && $idToken === '') self::respond(['success' => false, 'message' => 'Google kimlik doğrulama bilgisi gerekli'], 422);
+			$google = $code !== '' ? GoogleLoginModule::exchangeCode($code) : self::exchangeGoogleIdToken($idToken);
 			if (empty($google['success'])) self::respond($google, 401);
 			$login = Customer::authWithGoogle((string) ($google['google_id'] ?? ''), (string) ($google['email'] ?? ''), (string) ($google['name'] ?? ''), !empty($google['email_verified']));
 			if (!empty($login['pending'])) self::respond($login, 403);
@@ -677,8 +678,28 @@ class OzdMobileApiService
 
 	private static function bearer(): string
 	{
-		$header = trim((string) ($_SERVER['HTTP_AUTHORIZATION'] ?? ''));
+		$header = trim((string) ($_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? $_SERVER['HTTP_X_AUTHORIZATION'] ?? ''));
 		return preg_match('/^Bearer\s+(.+)$/i', $header, $m) ? trim($m[1]) : '';
+	}
+
+	/** Validate a native Google ID token through Google's tokeninfo endpoint. */
+	private static function exchangeGoogleIdToken(string $idToken): array
+	{
+		if (!function_exists('curl_init')) return ['success' => false, 'message' => 'Sunucuda cURL etkin değil'];
+		$url = 'https://oauth2.googleapis.com/tokeninfo?id_token=' . rawurlencode($idToken);
+		$ch = curl_init($url);
+		curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 15, CURLOPT_HTTPHEADER => ['Accept: application/json']]);
+		$response = curl_exec($ch);
+		$status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+		curl_close($ch);
+		$data = is_string($response) ? json_decode($response, true) : null;
+		$clientId = trim((string) Settings::get('GOOGLE_CLIENT_ID'));
+		if ($status !== 200 || !is_array($data) || empty($data['sub']) || ($clientId !== '' && (string) ($data['aud'] ?? '') !== $clientId)) {
+			return ['success' => false, 'message' => 'Geçersiz Google kimlik belirteci'];
+		}
+		$verified = ($data['email_verified'] ?? '') === true || in_array((string) ($data['email_verified'] ?? ''), ['1', 'true'], true);
+		if (!$verified) return ['success' => false, 'message' => 'Google e-posta doğrulanmamış'];
+		return ['success' => true, 'google_id' => (string) $data['sub'], 'email' => (string) ($data['email'] ?? ''), 'name' => (string) ($data['name'] ?? ''), 'email_verified' => true];
 	}
 
 	private static function issueTokens(int $idUser): array

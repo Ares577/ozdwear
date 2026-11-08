@@ -26,7 +26,12 @@ class ApiClient {
     final params = <String, String>{'m': 'ozd-mobile-api', 'action': 'api', 'route': route, ...?query};
     final headers = <String, String>{'Accept': 'application/json'};
     final token = bearerOverride ?? await session.accessToken;
-    if (token != null && token.isNotEmpty) headers['Authorization'] = 'Bearer $token';
+    if (token != null && token.isNotEmpty) {
+      // X-Authorization is a compatibility fallback for Apache/PHP-FPM hosts
+      // that do not forward the standard Authorization header.
+      headers['Authorization'] = 'Bearer $token';
+      headers['X-Authorization'] = 'Bearer $token';
+    }
     if (body != null) headers['Content-Type'] = 'application/json';
     final uri = Uri.parse(endpoint).replace(queryParameters: params);
     final request = http.Request(method, uri)..headers.addAll(headers);
