@@ -49,6 +49,7 @@ class OzdMobileApiService
 		if ($resource === 'profile') self::profile($method, $parts[1] ?? '', $data, $user);
 		if ($resource === 'bootstrap' && $method === 'GET') self::bootstrap();
 		if ($resource === 'cms' && $method === 'GET') self::cms((string) ($parts[1] ?? ''));
+		if ($resource === 'track' && $method === 'GET') self::track((string) ($_GET['reference'] ?? ''));
 		if ($resource === 'products') self::products($method, $id, $data);
 		if ($resource === 'categories' && $method === 'GET') self::categories();
 		if ($resource === 'favorites') self::favorites($method, $id, $user);
@@ -57,11 +58,29 @@ class OzdMobileApiService
 		if ($resource === 'coupon') self::coupon($method, $parts[1] ?? '', $data, $user);
 		if ($resource === 'checkout') self::checkout($method, $parts[1] ?? '', $data, $user);
 		if ($resource === 'orders') self::orders($method, $id, $data, $parts[2] ?? '', $user);
+		if ($resource === 'returns' && $method === 'GET') self::returns($id, $user);
 		if ($resource === 'messages') self::messages($method, $id, $data, $user);
 		if ($resource === 'contact' && $method === 'POST') self::contact($data);
 		if ($resource === 'notifications') self::notifications($method, $id, $parts[2] ?? '', $user);
 		if ($resource === 'devices' && $method === 'POST') self::device($data, $user);
 		self::respond(['success' => false, 'message' => 'Mobil API rotası bulunamadı'], 404);
+	}
+
+	private static function track(string $reference): void
+	{
+		$reference = strtoupper(trim($reference));
+		if ($reference === '' || strlen($reference) > 64) {
+			self::respond(['success' => false, 'message' => 'Sipariş numarası gerekli'], 422);
+		}
+		$idUser = null;
+		$bearer = self::bearer();
+		if ($bearer !== '') {
+			$row = DB::getRowSafe('mobile_access_tokens', 'token_hash = ? AND token_type = ? AND revoked_at IS NULL AND expires_at > NOW()', [hash('sha256', $bearer), 'access']);
+			$idUser = $row ? (int) $row['id_user'] : null;
+		}
+		$order = Order::trackByReference($reference, $idUser);
+		if (!$order) self::respond(['success' => false, 'message' => 'Sipariş bulunamadı'], 404);
+		self::respond(['success' => true, 'data' => $order]);
 	}
 
 	private static function auth(string $action, array $data, ?array $user): void
@@ -144,6 +163,11 @@ class OzdMobileApiService
 			'app_name' => Settings::get('SITE_NAME') ?: 'OZD WEAR',
 			'version' => Settings::get('OZD_MOBILE_API_VERSION') ?: '1.0.0',
 			'logos' => $logos,
+			'contact' => [
+				'phone' => (string) Settings::get('CONTACT_PHONE'),
+				'email' => (string) Settings::get('CONTACT_EMAIL'),
+				'address' => (string) Settings::get('CONTACT_ADDRESS'),
+			],
 			'google_login' => ['enabled' => $googleEnabled, 'server_client_id' => $googleEnabled ? (string) Settings::get('GOOGLE_CLIENT_ID') : ''],
 			'slides' => $slides,
 			'theme' => ['background' => '#f7f7f5', 'ink' => '#111111', 'muted' => '#767676', 'accent' => '#111111'],
@@ -175,6 +199,7 @@ class OzdMobileApiService
 			$basePrice = (float) ($product['price'] ?? $product['price_tax_inc'] ?? 0);
 			$product['variations'] = ProductVariation::getForStorefront($id, $basePrice);
 			$product['reviews'] = class_exists('ReviewsModule', false) ? ReviewsModule::getApprovedForProduct($id, 50) : [];
+			$product = self::normalizeProductAssets($product);
 			self::respond(['success' => true, 'data' => $product]);
 		}
 		$page = max(1, (int) ($_GET['page'] ?? 1));
@@ -200,13 +225,43 @@ class OzdMobileApiService
 		if ($brandId > 0 && $query === '' && $filter === '') { $countSql .= ' AND id_brand = ?'; $countParams[] = $brandId; }
 		if ($filter === 'discounted') $countSql .= ' AND old_price > price';
 		$total = (int) DB::getValue($countSql, $countParams);
+		$rows = array_map(static function (array $row): array {
+			return self::normalizeProductAssets($row);
+		}, $rows);
 		self::respond(['success' => true, 'data' => $rows, 'meta' => ['page' => $page, 'limit' => $limit, 'total' => $total, 'query' => $query]]);
 	}
 
 	private static function categories(): void
 	{
 		$rows = DB::execute('SELECT id_category AS id, category_name AS name, category_link AS slug, id_parent AS parent_id FROM categories WHERE active = 1 ORDER BY position ASC, category_name ASC') ?: [];
+		$rows = array_map(static function (array $row): array {
+			$row['image_url'] = Category::getImageUrl((int) ($row['id'] ?? 0));
+			return $row;
+		}, $rows);
 		self::respond(['success' => true, 'data' => $rows]);
+	}
+
+	private static function normalizeProductAssets(array $product): array
+	{
+		if (empty($product['image_url']) && !empty($product['id_image'])) {
+			$product['image_url'] = Product::getImageUrl((int) $product['id_image']);
+		}
+		$images = [];
+		foreach ((array) ($product['images'] ?? []) as $image) {
+			if (is_array($image)) {
+				$url = (string) ($image['url'] ?? $image['image_url'] ?? '');
+				if ($url !== '') {
+					$image['url'] = $url;
+					$images[] = $image;
+				}
+			} elseif (trim((string) $image) !== '') {
+				$images[] = ['url' => (string) $image];
+			}
+		}
+		if ($images === [] && !empty($product['image_url'])) $images[] = ['url' => (string) $product['image_url'], 'cover' => 1];
+		$product['images'] = $images;
+		$product['image_url'] = (string) ($product['image_url'] ?? ($images[0]['url'] ?? ''));
+		return $product;
 	}
 
 	private static function favorites(string $method, int $id, ?array $user): void
@@ -272,6 +327,18 @@ class OzdMobileApiService
 		self::respond(['success' => true, 'data' => Order::getUserOrders($uid)]);
 	}
 
+	private static function returns(int $id, ?array $user): void
+	{
+		if (!$user) self::respond(['success' => false, 'message' => 'Giriş yapmalısınız'], 401);
+		ReturnRequest::ensureSchema();
+		if ($id > 0) {
+			$row = ReturnRequest::getByIdForUser($id, (int) $user['id_user']);
+			if (!$row) self::respond(['success' => false, 'message' => 'İade talebi bulunamadı'], 404);
+			self::respond(['success' => true, 'data' => $row]);
+		}
+		self::respond(['success' => true, 'data' => ReturnRequest::getUserList((int) $user['id_user'])]);
+	}
+
 	private static function messages(string $method, int $idOrder, array $data, ?array $user): void
 	{
 		if (!$user) self::respond(['success' => false, 'message' => 'Giriş yapmalısınız'], 401);
@@ -313,7 +380,7 @@ class OzdMobileApiService
 
 	private static function authenticate(string $route, string $method): ?array
 	{
-		if (in_array($route, ['auth/login', 'auth/register', 'auth/refresh', 'auth/forgot-password', 'auth/reset-password', 'contact'], true) || $route === 'bootstrap' || $route === 'products' || strpos($route, 'products/') === 0 || $route === 'categories' || strpos($route, 'cms/') === 0) return null;
+		if (in_array($route, ['auth/login', 'auth/register', 'auth/refresh', 'auth/forgot-password', 'auth/reset-password', 'contact', 'track'], true) || $route === 'bootstrap' || $route === 'products' || strpos($route, 'products/') === 0 || $route === 'categories' || strpos($route, 'cms/') === 0) return null;
 		$raw = self::bearer();
 		if ($raw === '') self::respond(['success' => false, 'message' => 'Bearer token gerekli'], 401);
 		$row = DB::getRowSafe('mobile_access_tokens', 'token_hash = ? AND token_type = ? AND revoked_at IS NULL AND expires_at > NOW()', [hash('sha256', $raw), 'access']);
