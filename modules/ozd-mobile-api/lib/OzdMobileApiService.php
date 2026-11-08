@@ -162,6 +162,14 @@ class OzdMobileApiService
 				'promo' => SliderModule::getList('promo', true),
 			];
 		}
+		$trustBar = self::optionalServiceCall('trust-bar', 'TrustBarService', 'TrustBarService.php', 'getActiveItems');
+		$instagram = self::optionalServiceCall('instagram-gallery', 'InstagramGalleryService', 'InstagramGalleryService.php', 'getActiveItems');
+		$stories = self::optionalServiceCall('story', 'StoryModule', 'story.php', 'getList', [true]);
+		$menu = self::optionalServiceCall('main-menu', 'MenuService', 'MenuService.php', 'getActiveItems', ['mobile']);
+		$homeText = '';
+		if (Module::isEnabled('home-text')) {
+			$homeText = (string) DB::getValue('SELECT detail FROM home_text WHERE id = 1 LIMIT 1');
+		}
 		self::respond(['success' => true, 'data' => [
 			'app_name' => Settings::get('SITE_NAME') ?: 'OZD WEAR',
 			'version' => Settings::get('OZD_MOBILE_API_VERSION') ?: '1.0.0',
@@ -173,8 +181,25 @@ class OzdMobileApiService
 			],
 			'google_login' => ['enabled' => $googleEnabled, 'server_client_id' => $googleEnabled ? (string) Settings::get('GOOGLE_CLIENT_ID') : ''],
 			'slides' => $slides,
+			'trust_bar' => is_array($trustBar) ? $trustBar : [],
+			'instagram_gallery' => is_array($instagram) ? $instagram : [],
+			'stories' => is_array($stories) ? $stories : [],
+			'mobile_menu' => is_array($menu) ? $menu : [],
+			'home_text' => $homeText,
 			'theme' => ['background' => '#f7f7f5', 'ink' => '#111111', 'muted' => '#767676', 'accent' => '#111111'],
 		]]);
+	}
+
+	private static function optionalServiceCall(string $module, string $class, string $fileName, string $method, array $args = [])
+	{
+		if (!Module::isEnabled($module)) return [];
+		if (!class_exists($class, false)) {
+			$base = dirname(__DIR__, 2) . '/' . $module . '/';
+			$file = is_file($base . 'lib/' . $fileName) ? $base . 'lib/' . $fileName : $base . $fileName;
+			if (is_file($file)) require_once $file;
+		}
+		if (!class_exists($class, false) || !method_exists($class, $method)) return [];
+		try { return $class::$method(...$args); } catch (Throwable $e) { return []; }
 	}
 
 	private static function popup(): void

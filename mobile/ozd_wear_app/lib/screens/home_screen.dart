@@ -113,7 +113,13 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
               ),
             ),
+          if (((state.bootstrap['stories'] as List?) ?? const []).isNotEmpty)
+            SliverToBoxAdapter(child: SizedBox(height: 110, child: ListView.separated(scrollDirection: Axis.horizontal, padding: const EdgeInsets.fromLTRB(16, 12, 16, 4), itemCount: ((state.bootstrap['stories'] as List?) ?? const []).length, separatorBuilder: (_, __) => const SizedBox(width: 10), itemBuilder: (_, index) { final story = Map<String, dynamic>.from(((state.bootstrap['stories'] as List?) ?? const [])[index] as Map); final image = '${story['cover_url'] ?? story['media_url'] ?? ''}'; return SizedBox(width: 82, child: Column(children: [Expanded(child: ClipOval(child: CachedNetworkImage(imageUrl: image, fit: BoxFit.cover, errorWidget: (_, __, ___) => const Icon(Icons.auto_stories_outlined)))), const SizedBox(height: 4), Text('${story['title'] ?? ''}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700))])); }))),
+          if (((state.bootstrap['trust_bar'] as List?) ?? const []).isNotEmpty)
+            SliverToBoxAdapter(child: SizedBox(height: 88, child: ListView.separated(scrollDirection: Axis.horizontal, padding: const EdgeInsets.fromLTRB(16, 12, 16, 4), itemCount: ((state.bootstrap['trust_bar'] as List?) ?? const []).length, separatorBuilder: (_, __) => const SizedBox(width: 8), itemBuilder: (_, index) { final item = Map<String, dynamic>.from(((state.bootstrap['trust_bar'] as List?) ?? const [])[index] as Map); return Container(width: 170, padding: const EdgeInsets.all(10), decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [Text('${item['title'] ?? ''}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800)), Text('${item['subtitle'] ?? ''}', maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, color: Colors.grey))])); }))),
           const SliverToBoxAdapter(child: Padding(padding: EdgeInsets.fromLTRB(20, 24, 20, 8), child: Text('Yeni sezon', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800)))),
+          if ('${state.bootstrap['home_text'] ?? ''}'.trim().isNotEmpty)
+            SliverToBoxAdapter(child: Padding(padding: const EdgeInsets.fromLTRB(20, 8, 20, 4), child: Text('${state.bootstrap['home_text']}', maxLines: 5, overflow: TextOverflow.ellipsis, style: const TextStyle(color: Colors.grey, height: 1.35)))),
           if (state.categories.isNotEmpty)
             SliverToBoxAdapter(
               child: SizedBox(
