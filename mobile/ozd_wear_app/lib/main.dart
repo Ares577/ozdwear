@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:google_sign_in/google_sign_in.dart';
 import 'package:http/http.dart' as http;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 const _storeUrl = 'https://ozdwear.com/';
@@ -42,7 +43,10 @@ class _StoreWebViewScreenState extends State<StoreWebViewScreen> {
   bool _showSplash = true;
   bool _loaded = false;
   bool _googleBusy = false;
+  bool _sessionRestoreAttempted = false;
   String? _errorMessage;
+
+  static const _storage = FlutterSecureStorage();
 
   @override
   void initState() {
@@ -56,6 +60,9 @@ class _StoreWebViewScreenState extends State<StoreWebViewScreen> {
   void _createWebView() {
     final controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
+      ..addJavaScriptChannel('OzdApp', onMessageReceived: (message) {
+        if (message.message == 'logout') unawaited(_clearStoredSession());
+      })
       ..setBackgroundColor(Colors.white)
       // Use a normal mobile-browser user agent so the website's Google OAuth
       // flow can present the device account chooser instead of treating the
@@ -86,6 +93,10 @@ class _StoreWebViewScreenState extends State<StoreWebViewScreen> {
               _loaded = true;
               _errorMessage = null;
             });
+            if (!_sessionRestoreAttempted) {
+              _sessionRestoreAttempted = true;
+              unawaited(_restoreSession());
+            }
           },
           onWebResourceError: (error) {
             if (!mounted || _loaded) return;
@@ -121,9 +132,10 @@ class _StoreWebViewScreenState extends State<StoreWebViewScreen> {
         if (!window.__ozdHeaderLogoutBound) {
           window.__ozdHeaderLogoutBound = true;
           document.addEventListener('click', function (event) {
-            var button = event.target && event.target.closest ? event.target.closest('#logoutBtnHeader') : null;
+            var button = event.target && event.target.closest ? event.target.closest('#logoutBtn, #logoutBtnHeader') : null;
             if (!button) return;
             event.preventDefault();
+            if (window.OzdApp) window.OzdApp.postMessage('logout');
             var endpoint = typeof authApiUrl !== 'undefined' ? authApiUrl : '/api/auth.php';
             var token = typeof csrfToken !== 'undefined' ? csrfToken : '';
             fetch(endpoint, {method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:new URLSearchParams({action:'logout', token:token}).toString()})
@@ -179,10 +191,14 @@ class _StoreWebViewScreenState extends State<StoreWebViewScreen> {
       final loginPayload = jsonDecode(loginResponse.body);
       final loginData = loginPayload is Map ? loginPayload['data'] : null;
       final accessToken = loginData is Map ? (loginData['access_token'] ?? '').toString().trim() : '';
+      final refreshToken = loginData is Map ? (loginData['refresh_token'] ?? '').toString().trim() : '';
       if (loginResponse.statusCode < 200 || loginResponse.statusCode >= 300 || accessToken.isEmpty) {
         final message = loginPayload is Map ? (loginPayload['message'] ?? 'Google girişi başarısız.').toString() : 'Google girişi başarısız.';
         throw Exception(message);
       }
+
+      await _storage.write(key: 'ozd_access_token', value: accessToken);
+      if (refreshToken.isNotEmpty) await _storage.write(key: 'ozd_refresh_token', value: refreshToken);
 
       final encodedToken = Uri(queryParameters: {'access_token': accessToken}).query;
       await _controller?.loadRequest(
@@ -198,6 +214,42 @@ class _StoreWebViewScreenState extends State<StoreWebViewScreen> {
     } finally {
       if (mounted) setState(() => _googleBusy = false);
     }
+  }
+
+  Future<void> _restoreSession() async {
+    final refreshToken = await _storage.read(key: 'ozd_refresh_token');
+    if (refreshToken == null || refreshToken.isEmpty) return;
+
+    try {
+      final response = await http.post(
+        Uri.parse('$_storeUrl/api/module.php?m=ozd-mobile-api&action=api&route=auth/refresh'),
+        headers: {'Authorization': 'Bearer $refreshToken', 'Accept': 'application/json'},
+      ).timeout(const Duration(seconds: 15));
+      final payload = jsonDecode(response.body);
+      final data = payload is Map ? payload['data'] : null;
+      final accessToken = data is Map ? (data['access_token'] ?? '').toString().trim() : '';
+      final newRefreshToken = data is Map ? (data['refresh_token'] ?? '').toString().trim() : '';
+      if (response.statusCode < 200 || response.statusCode >= 300 || accessToken.isEmpty) {
+        await _clearStoredSession();
+        return;
+      }
+      await _storage.write(key: 'ozd_access_token', value: accessToken);
+      if (newRefreshToken.isNotEmpty) await _storage.write(key: 'ozd_refresh_token', value: newRefreshToken);
+      final encodedToken = Uri(queryParameters: {'access_token': accessToken}).query;
+      await _controller?.loadRequest(
+        Uri.parse('$_storeUrl/api/module.php?m=ozd-mobile-api&action=api&route=auth/web-session'),
+        method: LoadRequestMethod.post,
+        headers: const {'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'text/html'},
+        body: Uint8List.fromList(utf8.encode(encodedToken)),
+      );
+    } catch (_) {
+      // Offline startup must keep the storefront usable; retry on the next launch.
+    }
+  }
+
+  Future<void> _clearStoredSession() async {
+    await _storage.delete(key: 'ozd_access_token');
+    await _storage.delete(key: 'ozd_refresh_token');
   }
 
   String _messageForWebError(WebResourceError error) {
