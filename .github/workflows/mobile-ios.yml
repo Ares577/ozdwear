@@ -43,7 +43,9 @@ jobs:
           mkdir -p build/unsigned_ipa/Payload
           cp -R build/ios/iphoneos/Runner.app build/unsigned_ipa/Payload/OZD-WEAR.app
           cd build/unsigned_ipa
-          zip -r ../OZD-WEAR-iOS-Unsigned.ipa Payload
+          # Strip macOS extended attributes from the archive. Some Windows
+          # sideloaders reject those extra ZIP records during extraction.
+          zip -r -X ../OZD-WEAR-iOS-Unsigned.ipa Payload
       - uses: actions/upload-artifact@v4
         with:
           name: OZD-WEAR-iOS-Unsigned
