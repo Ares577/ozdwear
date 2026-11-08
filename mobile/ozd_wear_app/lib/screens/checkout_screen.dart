@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../state/app_state.dart';
+import 'addresses_screen.dart';
 
 class CheckoutScreen extends StatefulWidget {
   const CheckoutScreen({super.key});
@@ -29,7 +30,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
     cargoId ??= cargo.isNotEmpty ? int.tryParse('${cargo.first['id_cargo'] ?? cargo.first['id']}') : null;
     payment = payment.isEmpty && payments.isNotEmpty ? payments.first : payment;
     return ListView(padding: const EdgeInsets.all(18), children: [
-      _section('Teslimat adresi', addresses.isEmpty ? const Text('Kayıtlı adres bulunamadı.') : DropdownButtonFormField<int>(value: addressId, items: addresses.map((a) { final id = int.tryParse('${a['id_address'] ?? a['id']}') ?? 0; return DropdownMenuItem(value: id, child: Text('${a['label'] ?? a['address_label'] ?? a['city'] ?? 'Adres'}')); }).toList(), onChanged: (value) => setState(() => addressId = value))),
+      _section('Teslimat adresi', addresses.isEmpty ? Column(crossAxisAlignment: CrossAxisAlignment.start, children: [const Text('Kayıtlı adres bulunamadı.'), TextButton.icon(onPressed: () async { await Navigator.push(context, MaterialPageRoute(builder: (_) => const AddressesScreen())); if (mounted) setState(() => future = context.read<AppState>().checkoutSummary()); }, icon: const Icon(Icons.add), label: const Text('Adres ekle'))]) : DropdownButtonFormField<int>(value: addressId, items: addresses.map((a) { final id = int.tryParse('${a['id_address'] ?? a['id']}') ?? 0; return DropdownMenuItem(value: id, child: Text('${a['label'] ?? a['address_label'] ?? a['city'] ?? 'Adres'}')); }).toList(), onChanged: (value) => setState(() => addressId = value))),
       _section('Kargo', cargo.isEmpty ? const Text('Varsayılan kargo uygulanacak.') : DropdownButtonFormField<int>(value: cargoId, items: cargo.map((c) { final id = int.tryParse('${c['id_cargo'] ?? c['id']}') ?? 0; return DropdownMenuItem(value: id, child: Text('${c['name'] ?? c['cargo_name'] ?? c}')); }).toList(), onChanged: (value) => setState(() => cargoId = value))),
       _section('Ödeme yöntemi', payments.isEmpty ? const Text('Ödeme yöntemi bulunamadı.') : DropdownButtonFormField<String>(value: payment.isEmpty ? null : payment, items: payments.map((p) => DropdownMenuItem(value: p, child: Text(p))).toList(), onChanged: (value) => setState(() => payment = value ?? ''))),
       CheckboxListTile(value: accepted, onChanged: (value) => setState(() => accepted = value == true), title: const Text('Mesafeli satış ve gizlilik şartlarını kabul ediyorum.')),

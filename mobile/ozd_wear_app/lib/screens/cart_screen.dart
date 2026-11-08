@@ -10,6 +10,9 @@ class CartScreen extends StatefulWidget {
 }
 
 class _CartScreenState extends State<CartScreen> {
+  final coupon = TextEditingController();
+  bool couponBusy = false;
+  @override void dispose() { coupon.dispose(); super.dispose(); }
   @override void initState() { super.initState(); WidgetsBinding.instance.addPostFrameCallback((_) => context.read<AppState>().loadCart()); }
   @override Widget build(BuildContext context) {
     final state = context.watch<AppState>();
@@ -18,9 +21,24 @@ class _CartScreenState extends State<CartScreen> {
     return SafeArea(child: RefreshIndicator(onRefresh: state.loadCart, child: ListView(padding: const EdgeInsets.fromLTRB(16, 20, 16, 32), children: [
       const Text('Sepetim', style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800)), const SizedBox(height: 18),
       if (items.isEmpty) const Padding(padding: EdgeInsets.symmetric(vertical: 70), child: Center(child: Text('Sepetiniz boş.'))) else ...items.map((item) => _cartItem(state, item)),
-      const Divider(height: 30), _row('Ara toplam', data['subtotal_formatted'] ?? data['subtotal']), _row('Kargo', data['shipping_formatted'] ?? data['shipping']), _row('Toplam', data['grand_total_formatted'] ?? data['grand_total'], bold: true), const SizedBox(height: 18),
+      const Divider(height: 30), _row('Ara toplam', data['subtotal_formatted'] ?? data['subtotal']), if ((data['discount'] ?? 0).toString() != '0') _row('İndirim', data['discount_formatted'] ?? data['discount']), _row('Kargo', data['shipping_formatted'] ?? data['shipping']), _row('Toplam', data['grand_total_formatted'] ?? data['grand_total'], bold: true),
+      if (items.isNotEmpty) ...[
+        const SizedBox(height: 16),
+        Row(children: [Expanded(child: TextField(controller: coupon, textCapitalization: TextCapitalization.characters, decoration: const InputDecoration(labelText: 'Kupon kodu', border: OutlineInputBorder()))), const SizedBox(width: 8), FilledButton(onPressed: couponBusy ? null : _applyCoupon, child: Text(couponBusy ? '...' : 'Uygula'))]),
+        if ('${data['coupon_code'] ?? ''}'.isNotEmpty) TextButton.icon(onPressed: context.read<AppState>().removeCoupon, icon: const Icon(Icons.close), label: Text('Kuponu kaldır: ${data['coupon_code']}')),
+      ],
+      const SizedBox(height: 18),
       if (items.isNotEmpty) FilledButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CheckoutScreen())), child: const Text('Ödemeye geç')),
     ])));
+  }
+  Future<void> _applyCoupon() async {
+    if (coupon.text.trim().isEmpty) return;
+    setState(() => couponBusy = true);
+    final error = await context.read<AppState>().applyCoupon(coupon.text.trim());
+    if (!mounted) return;
+    setState(() => couponBusy = false);
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error ?? 'Kupon uygulandı.')));
+    if (error == null) coupon.clear();
   }
   Widget _cartItem(AppState state, Map<String, dynamic> item) {
     final quantity = double.tryParse('${item['qty']}') ?? 1;

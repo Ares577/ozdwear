@@ -118,6 +118,8 @@ class AppState extends ChangeNotifier {
   Future<void> updateCartItem(Map<String, dynamic> item, double quantity) async { await api.patch('cart/update', body: {'product_id': item['id_product'], 'variation_id': item['id_variation'] ?? 0, 'cart_key': item['cart_key'] ?? '', 'quantity': quantity}); await loadCart(); }
   Future<void> removeCartItem(Map<String, dynamic> item) async { await api.delete('cart/remove', body: {'product_id': item['id_product'], 'variation_id': item['id_variation'] ?? 0, 'cart_key': item['cart_key'] ?? ''}); await loadCart(); }
   Future<void> clearCart() async { await api.delete('cart/clear'); await loadCart(); }
+  Future<String?> applyCoupon(String code) async { try { await api.post('coupon/apply', body: {'code': code}); await loadCart(); return null; } catch (error) { return error.toString(); } }
+  Future<void> removeCoupon() async { await api.delete('coupon/remove', body: {}); await loadCart(); }
   Future<dynamic> checkoutSummary() => api.get('checkout/summary');
   Future<dynamic> placeOrder(Map<String, dynamic> data) async { final result = await api.post('checkout/order', body: data); await loadCart(); return result; }
   Future<void> loadFavorites() async { final result = await api.get('favorites'); favorites = (result['data'] as List?) ?? []; notifyListeners(); }
