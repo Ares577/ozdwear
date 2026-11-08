@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:http/http.dart' as http;
 import 'session_store.dart';
@@ -30,9 +31,25 @@ class ApiClient {
     final uri = Uri.parse(endpoint).replace(queryParameters: params);
     final request = http.Request(method, uri)..headers.addAll(headers);
     if (body != null) request.body = jsonEncode(body);
-    final response = await http.Client().send(request);
-    final text = await response.stream.bytesToString();
-    final decoded = text.isEmpty ? <String, dynamic>{} : jsonDecode(text);
+    final client = http.Client();
+    late final http.StreamedResponse response;
+    try {
+      response = await client.send(request).timeout(const Duration(seconds: 25));
+    } on TimeoutException {
+      client.close();
+      throw const ApiException('Sunucu yanıt vermedi. İnternet bağlantınızı kontrol edin.', 408);
+    } catch (_) {
+      client.close();
+      rethrow;
+    }
+    final text = await response.stream.bytesToString().timeout(const Duration(seconds: 25), onTimeout: () => throw const ApiException('Sunucu verisi zamanında alınamadı.', 408));
+    client.close();
+    dynamic decoded;
+    try {
+      decoded = text.isEmpty ? <String, dynamic>{} : jsonDecode(text);
+    } on FormatException {
+      throw ApiException('Sunucudan geçersiz yanıt geldi.', response.statusCode);
+    }
     if (response.statusCode == 401 && retry && route != 'auth/refresh') {
       final refresh = await session.refreshToken;
       if (refresh != null && refresh.isNotEmpty) {
