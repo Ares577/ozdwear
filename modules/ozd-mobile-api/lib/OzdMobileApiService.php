@@ -57,6 +57,7 @@ class OzdMobileApiService
 		if ($resource === 'checkout') self::checkout($method, $parts[1] ?? '', $data, $user);
 		if ($resource === 'orders') self::orders($method, $id, $data, $parts[2] ?? '', $user);
 		if ($resource === 'messages') self::messages($method, $id, $data, $user);
+		if ($resource === 'contact' && $method === 'POST') self::contact($data);
 		if ($resource === 'notifications') self::notifications($method, $id, $parts[2] ?? '', $user);
 		if ($resource === 'devices' && $method === 'POST') self::device($data, $user);
 		self::respond(['success' => false, 'message' => 'Mobil API rotası bulunamadı'], 404);
@@ -264,6 +265,19 @@ class OzdMobileApiService
 		self::respond(Contact::submitOrder($idOrder, (int) $user['id_user'], (string) ($data['message'] ?? ''), ['subject' => (string) ($data['subject'] ?? 'Mobil uygulama mesajı')]));
 	}
 
+	private static function contact(array $data): void
+	{
+		if (!class_exists('Contact', false)) require_once dirname(__DIR__, 2) . '/core/Contact.php';
+		$result = Contact::submit([
+			'full_name' => (string) ($data['full_name'] ?? ''),
+			'email' => (string) ($data['email'] ?? ''),
+			'phone' => (string) ($data['phone'] ?? ''),
+			'subject' => (string) ($data['subject'] ?? ''),
+			'message' => (string) ($data['message'] ?? ''),
+		]);
+		self::respond($result, !empty($result['success']) ? 201 : 422);
+	}
+
 	private static function notifications(string $method, int $id, string $action, ?array $user): void
 	{
 		if (!$user) self::respond(['success' => false, 'message' => 'Giriş yapmalısınız'], 401);
@@ -283,7 +297,7 @@ class OzdMobileApiService
 
 	private static function authenticate(string $route, string $method): ?array
 	{
-		if (in_array($route, ['auth/login', 'auth/register', 'auth/refresh', 'auth/forgot-password', 'auth/reset-password'], true) || $route === 'bootstrap' || $route === 'products' || strpos($route, 'products/') === 0 || $route === 'categories') return null;
+		if (in_array($route, ['auth/login', 'auth/register', 'auth/refresh', 'auth/forgot-password', 'auth/reset-password', 'contact'], true) || $route === 'bootstrap' || $route === 'products' || strpos($route, 'products/') === 0 || $route === 'categories') return null;
 		$raw = self::bearer();
 		if ($raw === '') self::respond(['success' => false, 'message' => 'Bearer token gerekli'], 401);
 		$row = DB::getRowSafe('mobile_access_tokens', 'token_hash = ? AND token_type = ? AND revoked_at IS NULL AND expires_at > NOW()', [hash('sha256', $raw), 'access']);
