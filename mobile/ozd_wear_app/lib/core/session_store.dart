@@ -29,4 +29,8 @@ class SessionStore {
     await _storage.delete(key: _accessKey);
     await _storage.delete(key: _refreshKey);
   }
+
+  Future<String?> readCache(String key) => _storage.read(key: 'ozd_cache_$key');
+
+  Future<void> writeCache(String key, String value) => _storage.write(key: 'ozd_cache_$key', value: value);
 }

@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import '../core/api_client.dart';
 import '../core/session_store.dart';
@@ -35,6 +36,7 @@ class AppState extends ChangeNotifier {
     try {
       final result = await api.get('bootstrap');
       bootstrap = Map<String, dynamic>.from((result['data'] as Map?) ?? const {});
+      await session.writeCache('bootstrap', jsonEncode(bootstrap));
       final google = (bootstrap['google_login'] as Map?) ?? const {};
       googleLoginEnabled = google['enabled'] == true;
       googleServerClientId = '${google['server_client_id'] ?? ''}';
@@ -46,13 +48,28 @@ class AppState extends ChangeNotifier {
       notifyListeners();
     } catch (error) {
       lastError = error.toString();
+      try {
+        final cached = await session.readCache('bootstrap');
+        if (cached != null && cached.isNotEmpty) bootstrap = Map<String, dynamic>.from(jsonDecode(cached) as Map);
+      } catch (_) {}
       notifyListeners();
     }
   }
 
   Future<void> loadProducts({int categoryId = 0, int brandId = 0, String filter = '', String sort = 'newest'}) async {
     loading = true; notifyListeners();
-    try { final result = await api.get('products', query: {'page': '1', 'limit': '24', if (categoryId > 0) 'category_id': '$categoryId', if (brandId > 0) 'brand_id': '$brandId', if (filter.isNotEmpty) 'filter': filter, 'sort': sort}); products = ((result['data'] as List?) ?? []).whereType<Map>().map((e) => Product.fromJson(Map<String, dynamic>.from(e))).toList(); } catch (error) { lastError = error.toString(); } finally { loading = false; notifyListeners(); }
+    final cacheKey = 'products_${categoryId}_${brandId}_${filter}_$sort';
+    try {
+      final result = await api.get('products', query: {'page': '1', 'limit': '24', if (categoryId > 0) 'category_id': '$categoryId', if (brandId > 0) 'brand_id': '$brandId', if (filter.isNotEmpty) 'filter': filter, 'sort': sort});
+      products = ((result['data'] as List?) ?? []).whereType<Map>().map((e) => Product.fromJson(Map<String, dynamic>.from(e))).toList();
+      await session.writeCache(cacheKey, jsonEncode(result['data'] ?? const []));
+    } catch (error) {
+      lastError = error.toString();
+      try {
+        final cached = await session.readCache(cacheKey);
+        if (cached != null && cached.isNotEmpty) products = (jsonDecode(cached) as List).whereType<Map>().map((e) => Product.fromJson(Map<String, dynamic>.from(e))).toList();
+      } catch (_) {}
+    } finally { loading = false; notifyListeners(); }
   }
 
   Future<void> searchProducts(String query) async {
