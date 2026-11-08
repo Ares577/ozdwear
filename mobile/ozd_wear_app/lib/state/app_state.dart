@@ -3,6 +3,7 @@ import '../core/api_client.dart';
 import '../core/session_store.dart';
 import '../models/product.dart';
 import 'package:google_sign_in/google_sign_in.dart';
+import '../core/push_service.dart';
 
 class AppState extends ChangeNotifier {
   final SessionStore session = SessionStore();
@@ -24,7 +25,7 @@ class AppState extends ChangeNotifier {
   Future<void> hydrateSession() async {
     try {
       final token = await session.accessToken;
-      if (token != null && token.isNotEmpty) { await api.get('auth/me'); signedIn = true; await Future.wait([loadProfile(), loadNotifications()]); notifyListeners(); }
+      if (token != null && token.isNotEmpty) { await api.get('auth/me'); signedIn = true; await Future.wait([loadProfile(), loadNotifications()]); await PushService.register(this); notifyListeners(); }
     } catch (_) { await session.clear(); }
   }
 
@@ -56,7 +57,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<String?> login(String login, String password) async {
-    try { final result = await api.post('auth/login', body: {'login': login, 'password': password}); await session.save(access: result['data']['access_token'], refresh: result['data']['refresh_token']); signedIn = true; await Future.wait([loadProfile(), loadNotifications()]); notifyListeners(); return null; } catch (e) { return e.toString(); }
+    try { final result = await api.post('auth/login', body: {'login': login, 'password': password}); await session.save(access: result['data']['access_token'], refresh: result['data']['refresh_token']); signedIn = true; await Future.wait([loadProfile(), loadNotifications()]); await PushService.register(this); notifyListeners(); return null; } catch (e) { return e.toString(); }
   }
   Future<String?> register(String name, String phone, String email, String password) async {
     try {
@@ -66,6 +67,7 @@ class AppState extends ChangeNotifier {
         await session.save(access: data['access_token'], refresh: data['refresh_token']);
         signedIn = true;
         await Future.wait([loadProfile(), loadNotifications()]);
+        await PushService.register(this);
         notifyListeners();
       }
       return null;
@@ -84,6 +86,7 @@ class AppState extends ChangeNotifier {
       await session.save(access: result['data']['access_token'], refresh: result['data']['refresh_token']);
       signedIn = true;
       await Future.wait([loadProfile(), loadNotifications()]);
+      await PushService.register(this);
       notifyListeners();
       return null;
     } catch (e) { return e.toString(); }
