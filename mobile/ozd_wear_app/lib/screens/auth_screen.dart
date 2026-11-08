@@ -29,7 +29,6 @@ class _AuthScreenState extends State<AuthScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final state = context.watch<AppState>();
     return Scaffold(
       appBar: AppBar(title: const Text('Giriş yap')),
       body: ListView(padding: const EdgeInsets.all(20), children: [
