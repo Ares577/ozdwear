@@ -51,6 +51,10 @@ class _StoreWebViewScreenState extends State<StoreWebViewScreen> {
     final controller = WebViewController()
       ..setJavaScriptMode(JavaScriptMode.unrestricted)
       ..setBackgroundColor(Colors.white)
+      // Use a normal mobile-browser user agent so the website's Google OAuth
+      // flow can present the device account chooser instead of treating the
+      // request as an unknown embedded browser.
+      ..setUserAgent('Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 Chrome/131.0.0.0 Mobile Safari/537.36')
       ..enableZoom(false)
       ..setNavigationDelegate(
         NavigationDelegate(
@@ -63,6 +67,7 @@ class _StoreWebViewScreenState extends State<StoreWebViewScreen> {
           },
           onPageFinished: (_) {
             if (!mounted) return;
+            _applyWebViewLayoutRules();
             setState(() {
               _loaded = true;
               _errorMessage = null;
@@ -79,6 +84,31 @@ class _StoreWebViewScreenState extends State<StoreWebViewScreen> {
       )
       ..loadRequest(Uri.parse(_storeUrl));
     _controller = controller;
+  }
+
+  Future<void> _applyWebViewLayoutRules() async {
+    try {
+      await _controller?.runJavaScript('''
+      (function () {
+        var meta = document.querySelector('meta[name="viewport"]');
+        if (!meta) {
+          meta = document.createElement('meta');
+          meta.name = 'viewport';
+          document.head.appendChild(meta);
+        }
+        meta.content = 'width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no';
+        var style = document.getElementById('ozd-app-webview-rules');
+        if (!style) {
+          style = document.createElement('style');
+          style.id = 'ozd-app-webview-rules';
+          style.textContent = 'html,body{max-width:100%;overflow-x:hidden!important;overscroll-behavior-x:none!important;}body{-webkit-text-size-adjust:100%;}::-webkit-scrollbar{width:0!important;height:0!important;display:none!important;}';
+          document.head.appendChild(style);
+        }
+      })();
+      ''');
+    } catch (_) {
+      // A navigation can finish while the document is being replaced.
+    }
   }
 
   String _messageForWebError(WebResourceError error) {
@@ -127,13 +157,19 @@ class _StoreWebViewScreenState extends State<StoreWebViewScreen> {
       },
       child: Scaffold(
         backgroundColor: Colors.white,
-        body: Stack(
-          fit: StackFit.expand,
-          children: [
-            if (_controller != null && errorMessage == null) WebViewWidget(controller: _controller!),
-            if (errorMessage != null) _ErrorView(message: errorMessage, onRetry: _retry),
-            if (_showSplash) const _SplashView(),
-          ],
+        body: SafeArea(
+          top: true,
+          bottom: true,
+          left: false,
+          right: false,
+          child: Stack(
+            fit: StackFit.expand,
+            children: [
+              if (_controller != null && errorMessage == null) WebViewWidget(controller: _controller!),
+              if (errorMessage != null) _ErrorView(message: errorMessage, onRetry: _retry),
+              if (_showSplash) const _SplashView(),
+            ],
+          ),
         ),
       ),
     );
