@@ -47,7 +47,7 @@ class _CheckoutScreenState extends State<CheckoutScreen> {
       if (!mounted) return;
       final message = (result is Map ? result['message'] : null) ?? 'Sipariş oluşturuldu.';
       ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$message')));
-      final redirect = result is Map ? '${result['redirect_url'] ?? result['payment_url'] ?? result['url'] ?? ''}' : '';
+      final redirect = result is Map ? '${result['redirect'] ?? result['redirect_url'] ?? result['payment_url'] ?? result['url'] ?? ''}' : '';
       if (redirect.isNotEmpty) {
         final uri = Uri.tryParse(redirect);
         if (uri != null) await launchUrl(uri, mode: LaunchMode.externalApplication);
