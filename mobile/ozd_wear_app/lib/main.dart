@@ -83,7 +83,7 @@ class _StoreWebViewScreenState extends State<StoreWebViewScreen> {
 
   String _messageForWebError(WebResourceError error) {
     final type = error.errorType;
-    if (type == WebResourceErrorType.hostLookup || type == WebResourceErrorType.connect || type == WebResourceErrorType.timeout || type == WebResourceErrorType.internetDisconnected) {
+    if (type == WebResourceErrorType.hostLookup || type == WebResourceErrorType.connect || type == WebResourceErrorType.timeout) {
       return 'Ağ bağlantısı yok. Lütfen internet bağlantınızı kontrol edip tekrar deneyin.';
     }
     return 'Sunucu ile ilgili bir sorun var. Lütfen daha sonra tekrar deneyin.';
