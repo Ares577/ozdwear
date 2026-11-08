@@ -25,7 +25,7 @@ class AppState extends ChangeNotifier {
   Future<void> hydrateSession() async {
     try {
       final token = await session.accessToken;
-      if (token != null && token.isNotEmpty) { await api.get('auth/me'); signedIn = true; await Future.wait([loadProfile(), loadNotifications()]); await PushService.register(this); notifyListeners(); }
+      if (token != null && token.isNotEmpty) { await api.get('auth/me'); signedIn = true; await Future.wait([loadProfile(), loadNotifications(), loadFavorites(), loadCart()]); await PushService.register(this); notifyListeners(); }
     } catch (_) { await session.clear(); }
   }
 
@@ -68,7 +68,7 @@ class AppState extends ChangeNotifier {
   }
 
   Future<String?> login(String login, String password) async {
-    try { final result = await api.post('auth/login', body: {'login': login, 'password': password}); await session.save(access: result['data']['access_token'], refresh: result['data']['refresh_token']); signedIn = true; await Future.wait([loadProfile(), loadNotifications()]); await PushService.register(this); notifyListeners(); return null; } catch (e) { return e.toString(); }
+    try { final result = await api.post('auth/login', body: {'login': login, 'password': password}); await session.save(access: result['data']['access_token'], refresh: result['data']['refresh_token']); signedIn = true; await Future.wait([loadProfile(), loadNotifications(), loadFavorites(), loadCart()]); await PushService.register(this); notifyListeners(); return null; } catch (e) { return e.toString(); }
   }
   Future<String?> register(String name, String phone, String email, String password) async {
     try {
@@ -77,7 +77,7 @@ class AppState extends ChangeNotifier {
       if (data is Map && data['access_token'] != null) {
         await session.save(access: data['access_token'], refresh: data['refresh_token']);
         signedIn = true;
-        await Future.wait([loadProfile(), loadNotifications()]);
+        await Future.wait([loadProfile(), loadNotifications(), loadFavorites(), loadCart()]);
         await PushService.register(this);
         notifyListeners();
       }
@@ -96,13 +96,13 @@ class AppState extends ChangeNotifier {
       final result = await api.post('auth/google', body: {'code': code});
       await session.save(access: result['data']['access_token'], refresh: result['data']['refresh_token']);
       signedIn = true;
-      await Future.wait([loadProfile(), loadNotifications()]);
+      await Future.wait([loadProfile(), loadNotifications(), loadFavorites(), loadCart()]);
       await PushService.register(this);
       notifyListeners();
       return null;
     } catch (e) { return e.toString(); }
   }
-  Future<void> logout() async { try { await api.post('auth/logout'); } catch (_) {} await session.clear(); signedIn = false; notifyListeners(); }
+  Future<void> logout() async { try { await api.post('auth/logout'); } catch (_) {} await session.clear(); signedIn = false; favorites = []; cart = {}; profile = {}; notifications = []; unreadNotifications = 0; notifyListeners(); }
   Future<void> loadProfile() async { final result = await api.get('profile'); profile = Map<String, dynamic>.from((result['data'] as Map?) ?? const {}); notifyListeners(); }
   Future<String?> saveProfile({required String fullName, required String phone, required String email}) async { try { final result = await api.put('profile', body: {'full_name': fullName, 'phone': phone, 'email': email}); profile = Map<String, dynamic>.from((result['data'] as Map?) ?? const {}); notifyListeners(); return null; } catch (e) { return e.toString(); } }
   Future<String?> changePassword(String current, String next) async { try { await api.post('profile/password', body: {'current_password': current, 'new_password': next}); return null; } catch (e) { return e.toString(); } }
