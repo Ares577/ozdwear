@@ -186,7 +186,7 @@ class _StoreWebViewScreenState extends State<StoreWebViewScreen> {
 
       final encodedToken = Uri(queryParameters: {'access_token': accessToken}).query;
       await _controller?.loadRequest(
-        Uri.parse('$_storeUrl/api/module.php?m=ozd-mobile-api&action=web-session'),
+        Uri.parse('$_storeUrl/api/module.php?m=ozd-mobile-api&action=api&route=auth/web-session'),
         method: LoadRequestMethod.post,
         headers: const {'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'text/html'},
         body: Uint8List.fromList(utf8.encode(encodedToken)),
