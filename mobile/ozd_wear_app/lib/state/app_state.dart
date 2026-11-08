@@ -56,6 +56,17 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<Product> loadProductDetail(Product fallback) async {
+    try {
+      final result = await api.get('products/${fallback.id}');
+      final data = result['data'];
+      if (data is Map) return Product.fromJson(Map<String, dynamic>.from(data));
+    } catch (_) {
+      // Keep the cached list item usable while offline or during a transient error.
+    }
+    return fallback;
+  }
+
   Future<String?> login(String login, String password) async {
     try { final result = await api.post('auth/login', body: {'login': login, 'password': password}); await session.save(access: result['data']['access_token'], refresh: result['data']['refresh_token']); signedIn = true; await Future.wait([loadProfile(), loadNotifications()]); await PushService.register(this); notifyListeners(); return null; } catch (e) { return e.toString(); }
   }
