@@ -1,6 +1,7 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../state/app_state.dart';
 import '../widgets/product_card.dart';
 
@@ -45,17 +46,24 @@ class _HomeScreenState extends State<HomeScreen> {
                     itemBuilder: (_, index) {
                       final slide = Map<String, dynamic>.from(slides[index] as Map);
                       final image = '${slide['image_url'] ?? slide['image'] ?? ''}';
+                      final target = '${slide['url'] ?? slide['link'] ?? slide['target_url'] ?? ''}';
                       return Padding(
                         padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(18),
-                          child: Stack(
-                            fit: StackFit.expand,
-                            children: [
-                              CachedNetworkImage(imageUrl: image, fit: BoxFit.cover, errorWidget: (_, __, ___) => Container(color: Colors.black12)),
-                              const DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.bottomCenter, end: Alignment.topCenter, colors: [Colors.black54, Colors.transparent]))),
-                              Positioned(left: 18, bottom: 16, child: Text('${slide['title'] ?? ''}', style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800))),
-                            ],
+                        child: GestureDetector(
+                          onTap: target.isEmpty ? null : () async {
+                            final uri = Uri.tryParse(target);
+                            if (uri != null) await launchUrl(uri, mode: LaunchMode.externalApplication);
+                          },
+                          child: ClipRRect(
+                            borderRadius: BorderRadius.circular(18),
+                            child: Stack(
+                              fit: StackFit.expand,
+                              children: [
+                                CachedNetworkImage(imageUrl: image, fit: BoxFit.cover, errorWidget: (_, __, ___) => Container(color: Colors.black12)),
+                                const DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.bottomCenter, end: Alignment.topCenter, colors: [Colors.black54, Colors.transparent]))),
+                                Positioned(left: 18, bottom: 16, child: Text('${slide['title'] ?? ''}', style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800))),
+                              ],
+                            ),
                           ),
                         ),
                       );
