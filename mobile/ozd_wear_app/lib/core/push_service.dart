@@ -2,6 +2,7 @@ import 'dart:io';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
 import '../state/app_state.dart';
+import 'firebase_config.dart';
 
 class PushService {
   static FirebaseMessaging? _messaging;
@@ -10,7 +11,7 @@ class PushService {
 
   static Future<void> initialize(AppState state) async {
     try {
-      await Firebase.initializeApp();
+      await Firebase.initializeApp(options: FirebaseConfig.options);
       final messaging = FirebaseMessaging.instance;
       _messaging = messaging;
       await messaging.requestPermission(alert: true, badge: true, sound: true);

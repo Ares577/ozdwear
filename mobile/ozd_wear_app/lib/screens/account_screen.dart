@@ -1,5 +1,7 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../state/app_state.dart';
 import 'auth_screen.dart';
 import 'orders_screen.dart';
@@ -17,6 +19,8 @@ class AccountScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
+    final release = (state.bootstrap['release'] as Map?) ?? const {};
+    final releaseUrl = '${Platform.isIOS ? release['ios_url'] ?? '' : release['android_url'] ?? ''}';
     if (!state.signedIn) return Center(child: Column(mainAxisSize: MainAxisSize.min, children: [
       FilledButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AuthScreen())), child: const Text('Giriş yap')),
       TextButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TrackScreen())), child: const Text('Sipariş takibi')),
@@ -34,6 +38,7 @@ class AccountScreen extends StatelessWidget {
       ListTile(title: const Text('Adreslerim'), leading: const Icon(Icons.location_on_outlined), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddressesScreen()))),
       ListTile(title: const Text('İletişim'), leading: const Icon(Icons.mail_outline), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ContactScreen()))),
       ListTile(title: const Text('Blog'), leading: const Icon(Icons.article_outlined), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BlogScreen()))),
+      if (releaseUrl.isNotEmpty) ListTile(title: const Text('Uygulamayı güncelle'), leading: const Icon(Icons.system_update_outlined), onTap: () => launchUrl(Uri.parse(releaseUrl), mode: LaunchMode.externalApplication)),
       ListTile(title: const Text('Kampanya bültenine abone ol'), leading: const Icon(Icons.mark_email_unread_outlined), onTap: () => _newsletter(context)),
       ListTile(title: const Text('Gizlilik ve KVKK'), leading: const Icon(Icons.privacy_tip_outlined), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CmsScreen(slug: 'gizlilik', fallbackTitle: 'Gizlilik ve KVKK')))),
       ListTile(title: const Text('Mesafeli satış sözleşmesi'), leading: const Icon(Icons.description_outlined), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CmsScreen(slug: 'mesafeli-satis', fallbackTitle: 'Mesafeli satış sözleşmesi')))),
