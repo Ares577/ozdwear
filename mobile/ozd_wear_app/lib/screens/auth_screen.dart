@@ -38,10 +38,8 @@ class _AuthScreenState extends State<AuthScreen> {
         Align(alignment: Alignment.centerRight, child: TextButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ForgotPasswordScreen())), child: const Text('Şifremi unuttum'))),
         const SizedBox(height: 10),
         FilledButton(onPressed: busy ? null : () => _run(() => context.read<AppState>().login(login.text.trim(), password.text)), child: Text(busy ? 'Bekleyin...' : 'Giriş yap')),
-        if (state.googleLoginEnabled) ...[
-          const SizedBox(height: 10),
-          OutlinedButton.icon(onPressed: busy ? null : () => _run(context.read<AppState>().loginWithGoogle), icon: const Icon(Icons.account_circle_outlined), label: const Text('Google ile devam et')),
-        ],
+        const SizedBox(height: 10),
+        OutlinedButton.icon(onPressed: busy ? null : () => _run(context.read<AppState>().loginWithGoogle), icon: const Icon(Icons.account_circle_outlined), label: const Text('Google ile giriş yap')),
         TextButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const RegisterScreen())), child: const Text('Yeni hesap oluştur')),
       ]),
     );

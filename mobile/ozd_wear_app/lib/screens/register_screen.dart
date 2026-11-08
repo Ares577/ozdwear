@@ -3,4 +3,16 @@ import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 
 class RegisterScreen extends StatefulWidget { const RegisterScreen({super.key}); @override State<RegisterScreen> createState() => _RegisterScreenState(); }
-class _RegisterScreenState extends State<RegisterScreen> { final name = TextEditingController(), phone = TextEditingController(), email = TextEditingController(), password = TextEditingController(); bool busy = false; @override Widget build(BuildContext context) => Scaffold(appBar: AppBar(title: const Text('Kayıt ol')), body: ListView(padding: const EdgeInsets.all(20), children: [TextField(controller: name, decoration: const InputDecoration(labelText: 'Ad soyad')), TextField(controller: phone, decoration: const InputDecoration(labelText: 'Telefon')), TextField(controller: email, decoration: const InputDecoration(labelText: 'E-posta')), TextField(controller: password, obscureText: true, decoration: const InputDecoration(labelText: 'Şifre')), const SizedBox(height: 20), FilledButton(onPressed: busy ? null : () async { setState(() => busy = true); final error = await context.read<AppState>().register(name.text, phone.text, email.text, password.text); if (mounted) { setState(() => busy = false); if (error == null) Navigator.pop(context); else ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error))); } }, child: Text(busy ? 'Bekleyin...' : 'Kayıt ol'))])); }
+class _RegisterScreenState extends State<RegisterScreen> {
+  final name = TextEditingController(), phone = TextEditingController(), email = TextEditingController(), password = TextEditingController();
+  bool busy = false;
+  @override void dispose() { name.dispose(); phone.dispose(); email.dispose(); password.dispose(); super.dispose(); }
+  Future<void> _google() async {
+    setState(() => busy = true);
+    final error = await context.read<AppState>().loginWithGoogle();
+    if (!mounted) return;
+    setState(() => busy = false);
+    if (error == null) Navigator.pop(context); else ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error)));
+  }
+  @override Widget build(BuildContext context) => Scaffold(appBar: AppBar(title: const Text('Kayıt ol')), body: ListView(padding: const EdgeInsets.all(20), children: [TextField(controller: name, decoration: const InputDecoration(labelText: 'Ad soyad')), TextField(controller: phone, decoration: const InputDecoration(labelText: 'Telefon')), TextField(controller: email, decoration: const InputDecoration(labelText: 'E-posta')), TextField(controller: password, obscureText: true, decoration: const InputDecoration(labelText: 'Şifre')), const SizedBox(height: 20), FilledButton(onPressed: busy ? null : () async { setState(() => busy = true); final error = await context.read<AppState>().register(name.text, phone.text, email.text, password.text); if (mounted) { setState(() => busy = false); if (error == null) Navigator.pop(context); else ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(error))); } }, child: Text(busy ? 'Bekleyin...' : 'Kayıt ol')), const SizedBox(height: 10), OutlinedButton.icon(onPressed: busy ? null : _google, icon: const Icon(Icons.account_circle_outlined), label: const Text('Google ile kayıt ol'))]));
+}

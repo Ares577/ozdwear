@@ -15,6 +15,7 @@ class _ProductScreenState extends State<ProductScreen> {
   int _selectedImage = 0;
   int _selectedVariation = 0;
   final Map<String, String> _options = {};
+  final Map<String, String> _variationSelections = {};
   bool _tracked = false;
 
   @override
@@ -56,9 +57,10 @@ class _ProductScreenState extends State<ProductScreen> {
       const SizedBox(height: 10), Row(children: [Text('${product.price.toStringAsFixed(2)} ₺', style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w700)), if (product.oldPrice > product.price) ...[const SizedBox(width: 8), Text('${product.oldPrice.toStringAsFixed(2)} ₺', style: const TextStyle(decoration: TextDecoration.lineThrough, color: Colors.grey))]]),
       if (product.discountTimer.isNotEmpty) _discountTimer(product.discountTimer),
       if (product.quantityTiers.isNotEmpty) _quantityTiers(product.quantityTiers),
-      if (product.variations.isNotEmpty) ...[
-        const SizedBox(height: 20), const Text('Beden / renk seçimi', style: TextStyle(fontWeight: FontWeight.w700)), const SizedBox(height: 8),
-        Wrap(spacing: 8, children: List.generate(product.variations.length, (index) { final raw = product.variations[index]; final item = raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{}; final label = '${item['label'] ?? item['name'] ?? item['value'] ?? 'Seçenek'}'; final stock = double.tryParse('${item['stock'] ?? 1}') ?? 1; return ChoiceChip(label: Text(stock <= 0 ? '$label (Tükendi)' : label), selected: _selectedVariation == index, onSelected: stock <= 0 ? null : (_) => setState(() => _selectedVariation = index)); })),
+      if (product.variationGroups.isNotEmpty) _variationGroupWidgets(product),
+      if (product.variationGroups.isEmpty && product.variations.isNotEmpty) ...[
+        const SizedBox(height: 20), const Text('Seçenek', style: TextStyle(fontWeight: FontWeight.w700)), const SizedBox(height: 8),
+        Wrap(spacing: 8, children: List.generate(product.variations.length, (index) { final item = _variationAt(product, index); final label = _variationLabel(item); final stock = _variationStock(item); return ChoiceChip(label: Text(stock <= 0 ? '$label (Tükendi)' : label), selected: _selectedVariation == index, onSelected: stock <= 0 ? null : (_) => setState(() => _selectedVariation = index)); })),
       ],
       ..._optionWidgets(product),
       if (product.description.isNotEmpty) Padding(padding: const EdgeInsets.symmetric(vertical: 20), child: Text(product.description)),
@@ -73,6 +75,68 @@ class _ProductScreenState extends State<ProductScreen> {
       if (!product.inStock) ...[const SizedBox(height: 8), OutlinedButton.icon(onPressed: () => _stockAlert(product, variationId), icon: const Icon(Icons.notifications_none), label: const Text('Stoğa girince haber ver'))],
       if (product.oldPrice > product.price) ...[const SizedBox(height: 8), TextButton.icon(onPressed: () => _priceAlert(product), icon: const Icon(Icons.trending_down), label: const Text('Fiyat düşünce haber ver'))],
     ]);
+  }
+
+  Widget _variationGroupWidgets(Product product) {
+    final widgets = <Widget>[const SizedBox(height: 20), const Text('Beden / renk seçimi', style: TextStyle(fontWeight: FontWeight.w700)), const SizedBox(height: 8)];
+    for (final rawGroup in product.variationGroups) {
+      if (rawGroup is! Map) continue;
+      final group = Map<String, dynamic>.from(rawGroup);
+      final name = '${group['name'] ?? 'Seçenek'}';
+      final values = (group['values'] as List? ?? const []).map((value) => '$value').where((value) => value.isNotEmpty).toList();
+      if (values.isEmpty) continue;
+      final selected = _variationSelections[name] ?? _selectedVariationOptions(product)[name];
+      widgets.add(Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(name, style: const TextStyle(fontWeight: FontWeight.w600)),
+          const SizedBox(height: 6),
+          Wrap(spacing: 8, runSpacing: 8, children: values.map((value) => ChoiceChip(label: Text(value), selected: selected == value, onSelected: (_) => _chooseVariationValue(product, name, value))).toList()),
+        ]),
+      ));
+    }
+    return Column(crossAxisAlignment: CrossAxisAlignment.start, children: widgets);
+  }
+
+  Map<String, dynamic> _variationAt(Product product, int index) {
+    if (index < 0 || index >= product.variations.length) return <String, dynamic>{};
+    final raw = product.variations[index];
+    return raw is Map ? Map<String, dynamic>.from(raw) : <String, dynamic>{};
+  }
+
+  String _variationLabel(Map<String, dynamic> item) {
+    final options = item['options'];
+    if (options is Map && options.isNotEmpty) return options.values.map((value) => '$value').join(' / ');
+    return '${item['label'] ?? item['name'] ?? item['value'] ?? 'Seçenek'}';
+  }
+
+  double _variationStock(Map<String, dynamic> item) => double.tryParse('${item['stock'] ?? 1}') ?? 1;
+
+  Map<String, String> _selectedVariationOptions(Product product) {
+    final item = _variationAt(product, _selectedVariation);
+    final options = item['options'];
+    if (options is Map) return options.map((key, value) => MapEntry('$key', '$value'));
+    return const {};
+  }
+
+  void _chooseVariationValue(Product product, String groupName, String value) {
+    _variationSelections[groupName] = value;
+    var candidate = -1;
+    for (var index = 0; index < product.variations.length; index++) {
+      final item = _variationAt(product, index);
+      final options = item['options'];
+      final matches = options is Map && _variationSelections.entries.every((entry) => '${options[entry.key] ?? ''}' == entry.value);
+      if (matches && _variationStock(item) > 0) {
+        candidate = index;
+        break;
+      }
+    }
+    if (candidate >= 0) {
+      setState(() => _selectedVariation = candidate);
+    } else {
+      _variationSelections.remove(groupName);
+      setState(() {});
+    }
   }
 
   List<Widget> _optionWidgets(Product product) {
