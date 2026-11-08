@@ -63,8 +63,33 @@ class _HomeScreenState extends State<HomeScreen> {
                                 const DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.bottomCenter, end: Alignment.topCenter, colors: [Colors.black54, Colors.transparent]))),
                                 Positioned(left: 18, bottom: 16, child: Text('${slide['title'] ?? ''}', style: const TextStyle(color: Colors.white, fontSize: 22, fontWeight: FontWeight.w800))),
                               ],
-                            ),
-                          ),
+              ),
+            ),
+            if (((state.bootstrap['slides'] as Map?)?['promo'] as List?)?.isNotEmpty == true)
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: 118,
+                  child: ListView.separated(
+                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
+                    scrollDirection: Axis.horizontal,
+                    itemCount: ((state.bootstrap['slides'] as Map?)?['promo'] as List).length,
+                    separatorBuilder: (_, __) => const SizedBox(width: 10),
+                    itemBuilder: (_, index) {
+                      final slide = Map<String, dynamic>.from((((state.bootstrap['slides'] as Map?)?['promo'] as List)[index]) as Map);
+                      final image = '${slide['image_url'] ?? slide['image'] ?? ''}';
+                      final target = '${slide['url'] ?? slide['link_url'] ?? slide['link'] ?? ''}';
+                      return GestureDetector(
+                        onTap: target.isEmpty ? null : () async { final uri = Uri.tryParse(target); if (uri != null) await launchUrl(uri, mode: LaunchMode.externalApplication); },
+                        child: ClipRRect(borderRadius: BorderRadius.circular(14), child: SizedBox(width: 260, child: Stack(fit: StackFit.expand, children: [
+                          if (image.isNotEmpty) CachedNetworkImage(imageUrl: image, fit: BoxFit.cover) else Container(color: Colors.black12),
+                          const DecoratedBox(decoration: BoxDecoration(gradient: LinearGradient(begin: Alignment.bottomCenter, end: Alignment.topCenter, colors: [Colors.black54, Colors.transparent]))),
+                          Positioned(left: 12, bottom: 10, child: Text('${slide['title'] ?? slide['subtitle'] ?? ''}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w800))),
+                        ]))),
+                      );
+                    },
+                  ),
+                ),
+              ),
                         ),
                       );
                     },
@@ -84,7 +109,14 @@ class _HomeScreenState extends State<HomeScreen> {
                     itemBuilder: (_, index) {
                       final item = Map<String, dynamic>.from(state.categories[index] as Map);
                       final id = int.tryParse('${item['id'] ?? item['id_category'] ?? 0}') ?? 0;
-                      return ActionChip(label: Text('${item['name'] ?? item['category_name'] ?? ''}'), onPressed: () => state.loadProducts(categoryId: id));
+                      final image = '${item['image_url'] ?? ''}';
+                      return GestureDetector(
+                        onTap: () => state.loadProducts(categoryId: id),
+                        child: Container(width: 94, decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(12)), clipBehavior: Clip.antiAlias, child: Column(children: [
+                          Expanded(child: image.isEmpty ? const Icon(Icons.category_outlined) : CachedNetworkImage(imageUrl: image, width: double.infinity, fit: BoxFit.cover, errorWidget: (_, __, ___) => const Icon(Icons.category_outlined))),
+                          Padding(padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5), child: Text('${item['name'] ?? item['category_name'] ?? ''}', maxLines: 1, overflow: TextOverflow.ellipsis, textAlign: TextAlign.center, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700))),
+                        ])),
+                      );
                     },
                   ),
                 ),

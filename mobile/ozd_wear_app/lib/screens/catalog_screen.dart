@@ -1,6 +1,29 @@
+import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../state/app_state.dart';
 import '../widgets/product_card.dart';
 
-class CatalogScreen extends StatelessWidget { const CatalogScreen({super.key}); @override Widget build(BuildContext context) { final state = context.watch<AppState>(); return SafeArea(child: Column(children: [AppBar(title: const Text('Ürünler'), actions: [PopupMenuButton<String>(onSelected: (value) => state.loadProducts(filter: value == 'all' ? '' : value), itemBuilder: (_) => const [PopupMenuItem(value: 'all', child: Text('Tüm ürünler')), PopupMenuItem(value: 'discounted', child: Text('İndirimliler')), PopupMenuItem(value: 'top-rated', child: Text('En beğenilenler'))])]), if (state.categories.isNotEmpty) SizedBox(height: 48, child: ListView.separated(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 16), itemCount: state.categories.length, separatorBuilder: (_, __) => const SizedBox(width: 8), itemBuilder: (_, i) { final c = state.categories[i] as Map; final id = int.tryParse('${c['id'] ?? c['id_category'] ?? 0}') ?? 0; return ActionChip(label: Text('${c['name'] ?? c['category_name'] ?? ''}'), onPressed: () => state.loadProducts(categoryId: id)); })), Expanded(child: state.loading ? const Center(child: CircularProgressIndicator()) : state.products.isEmpty ? Center(child: ElevatedButton(onPressed: state.loadProducts, child: const Text('Ürünleri yükle'))) : GridView.builder(padding: const EdgeInsets.all(16), itemCount: state.products.length, gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 18, crossAxisSpacing: 14, childAspectRatio: .63), itemBuilder: (_, i) => ProductCard(product: state.products[i], onTap: () => Navigator.pushNamed(context, '/product', arguments: state.products[i]))))])); } }
+class CatalogScreen extends StatelessWidget {
+  const CatalogScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
+    return SafeArea(child: Column(children: [
+      AppBar(title: const Text('Ürünler'), actions: [PopupMenuButton<String>(onSelected: (value) => state.loadProducts(filter: value == 'all' ? '' : value), itemBuilder: (_) => const [
+        PopupMenuItem(value: 'all', child: Text('Tüm ürünler')), PopupMenuItem(value: 'discounted', child: Text('İndirimliler')), PopupMenuItem(value: 'top-rated', child: Text('En beğenilenler')),
+      ])]),
+      if (state.categories.isNotEmpty) SizedBox(height: 92, child: ListView.separated(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 16), itemCount: state.categories.length, separatorBuilder: (_, __) => const SizedBox(width: 10), itemBuilder: (_, i) {
+        final c = Map<String, dynamic>.from(state.categories[i] as Map);
+        final id = int.tryParse('${c['id'] ?? c['id_category'] ?? 0}') ?? 0;
+        final image = '${c['image_url'] ?? ''}';
+        return GestureDetector(onTap: () => state.loadProducts(categoryId: id), child: SizedBox(width: 82, child: Column(children: [
+          Expanded(child: ClipRRect(borderRadius: BorderRadius.circular(12), child: image.isEmpty ? Container(color: Colors.white, child: const Icon(Icons.category_outlined)) : CachedNetworkImage(imageUrl: image, width: 82, fit: BoxFit.cover, errorWidget: (_, __, ___) => const Icon(Icons.category_outlined)))),
+          const SizedBox(height: 4), Text('${c['name'] ?? c['category_name'] ?? ''}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
+        ])));
+      })),
+      Expanded(child: state.loading ? const Center(child: CircularProgressIndicator()) : state.products.isEmpty ? Center(child: ElevatedButton(onPressed: state.loadProducts, child: const Text('Ürünleri yükle'))) : GridView.builder(padding: const EdgeInsets.all(16), itemCount: state.products.length, gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 18, crossAxisSpacing: 14, childAspectRatio: .63), itemBuilder: (_, i) => ProductCard(product: state.products[i], onTap: () => Navigator.pushNamed(context, '/product', arguments: state.products[i])))),
+    ]));
+  }
+}
