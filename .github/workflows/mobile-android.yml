@@ -40,8 +40,10 @@ jobs:
           find android -type f \( -name '*.gradle' -o -name '*.gradle.kts' -o -name '*.kt' -o -name '*.java' \) -print0 | xargs -0 sed -i 's/com\.ozdwear\.ozd_wear_app/com.ozdwear.app/g'
           find ios -type f -name 'project.pbxproj' -print0 | xargs -0 sed -i 's/com\.ozdwear\.ozdWearApp/com.ozdwear.app/g; s/com\.ozdwear\.ozd_wear_app/com.ozdwear.app/g'
           grep -q 'android.permission.INTERNET' android/app/src/main/AndroidManifest.xml || sed -i '/<application/i\    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
+          sed -i 's/android:label="ozd_wear_app"/android:label="OZD WEAR"/g' android/app/src/main/AndroidManifest.xml
           rm -f test/widget_test.dart
       - run: flutter pub get
+      - run: dart run flutter_launcher_icons
       - run: flutter analyze --no-fatal-infos
       - run: flutter test
       - run: timeout 15m flutter build apk --debug $FIREBASE_DEFINES

@@ -43,7 +43,6 @@ class _StoreWebViewScreenState extends State<StoreWebViewScreen> {
   bool _showSplash = true;
   bool _loaded = false;
   bool _googleBusy = false;
-  bool _sessionRestoreAttempted = false;
   String? _errorMessage;
 
   static const _storage = FlutterSecureStorage();
@@ -51,9 +50,6 @@ class _StoreWebViewScreenState extends State<StoreWebViewScreen> {
   @override
   void initState() {
     super.initState();
-    _splashTimer = Timer(const Duration(seconds: 1), () {
-      if (mounted) setState(() => _showSplash = false);
-    });
     _createWebView();
   }
 
@@ -86,17 +82,15 @@ class _StoreWebViewScreenState extends State<StoreWebViewScreen> {
               _loaded = false;
             });
           },
-          onPageFinished: (_) {
+          onPageFinished: (url) {
             if (!mounted) return;
             _applyWebViewLayoutRules();
+            unawaited(_rememberLastPage(url));
             setState(() {
               _loaded = true;
               _errorMessage = null;
+              _showSplash = false;
             });
-            if (!_sessionRestoreAttempted) {
-              _sessionRestoreAttempted = true;
-              unawaited(_restoreSession());
-            }
           },
           onWebResourceError: (error) {
             if (!mounted || _loaded) return;
@@ -106,9 +100,14 @@ class _StoreWebViewScreenState extends State<StoreWebViewScreen> {
             });
           },
         ),
-      )
-      ..loadRequest(Uri.parse(_storeUrl));
+      );
     _controller = controller;
+    unawaited(_loadInitialPage());
+  }
+
+  Future<void> _loadInitialPage() async {
+    final restored = await _restoreSession();
+    if (!restored) await _controller?.loadRequest(Uri.parse(_storeUrl));
   }
 
   Future<void> _applyWebViewLayoutRules() async {
@@ -140,6 +139,17 @@ class _StoreWebViewScreenState extends State<StoreWebViewScreen> {
             var token = typeof csrfToken !== 'undefined' ? csrfToken : '';
             fetch(endpoint, {method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:new URLSearchParams({action:'logout', token:token}).toString()})
               .finally(function () { window.location.href = '/'; });
+          }, false);
+        }
+        if (!window.__ozdAccountLinksBound) {
+          window.__ozdAccountLinksBound = true;
+          document.addEventListener('click', function (event) {
+            var link = event.target && event.target.closest ? event.target.closest('a[href*="my-account"]') : null;
+            if (!link) return;
+            var label = (link.textContent || link.getAttribute('aria-label') || '').trim().toLowerCase();
+            if (label.indexOf('hesabım') === -1 && label.indexOf('profil') === -1) return;
+            event.preventDefault();
+            window.location.href = '/my-account';
           }, false);
         }
       })();
@@ -200,7 +210,8 @@ class _StoreWebViewScreenState extends State<StoreWebViewScreen> {
       await _storage.write(key: 'ozd_access_token', value: accessToken);
       if (refreshToken.isNotEmpty) await _storage.write(key: 'ozd_refresh_token', value: refreshToken);
 
-      final encodedToken = Uri(queryParameters: {'access_token': accessToken}).query;
+      final lastPage = await _storage.read(key: 'ozd_last_page') ?? _storeUrl;
+      final encodedToken = Uri(queryParameters: {'access_token': accessToken, 'return_url': lastPage}).query;
       await _controller?.loadRequest(
         Uri.parse('$_storeUrl/api/module.php?m=ozd-mobile-api&action=api&route=auth/web-session'),
         method: LoadRequestMethod.post,
@@ -216,9 +227,9 @@ class _StoreWebViewScreenState extends State<StoreWebViewScreen> {
     }
   }
 
-  Future<void> _restoreSession() async {
+  Future<bool> _restoreSession() async {
     final refreshToken = await _storage.read(key: 'ozd_refresh_token');
-    if (refreshToken == null || refreshToken.isEmpty) return;
+    if (refreshToken == null || refreshToken.isEmpty) return false;
 
     try {
       final response = await http.post(
@@ -231,20 +242,31 @@ class _StoreWebViewScreenState extends State<StoreWebViewScreen> {
       final newRefreshToken = data is Map ? (data['refresh_token'] ?? '').toString().trim() : '';
       if (response.statusCode < 200 || response.statusCode >= 300 || accessToken.isEmpty) {
         await _clearStoredSession();
-        return;
+        return false;
       }
       await _storage.write(key: 'ozd_access_token', value: accessToken);
       if (newRefreshToken.isNotEmpty) await _storage.write(key: 'ozd_refresh_token', value: newRefreshToken);
-      final encodedToken = Uri(queryParameters: {'access_token': accessToken}).query;
+      final lastPage = await _storage.read(key: 'ozd_last_page') ?? _storeUrl;
+      final encodedToken = Uri(queryParameters: {'access_token': accessToken, 'return_url': lastPage}).query;
       await _controller?.loadRequest(
         Uri.parse('$_storeUrl/api/module.php?m=ozd-mobile-api&action=api&route=auth/web-session'),
         method: LoadRequestMethod.post,
         headers: const {'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'text/html'},
         body: Uint8List.fromList(utf8.encode(encodedToken)),
       );
+      return true;
     } catch (_) {
       // Offline startup must keep the storefront usable; retry on the next launch.
+      return false;
     }
+  }
+
+  Future<void> _rememberLastPage(String url) async {
+    final parsed = Uri.tryParse(url);
+    final storeHost = Uri.parse(_storeUrl).host;
+    if (parsed == null || (parsed.host.isNotEmpty && parsed.host != storeHost)) return;
+    if (parsed.path.startsWith('/api/') || parsed.path == '/login' || parsed.path == '/register' || parsed.path.contains('google-login')) return;
+    await _storage.write(key: 'ozd_last_page', value: url);
   }
 
   Future<void> _clearStoredSession() async {
@@ -276,9 +298,6 @@ class _StoreWebViewScreenState extends State<StoreWebViewScreen> {
       _showSplash = true;
     });
     _splashTimer?.cancel();
-    _splashTimer = Timer(const Duration(seconds: 1), () {
-      if (mounted) setState(() => _showSplash = false);
-    });
     _controller?.loadRequest(Uri.parse(_storeUrl));
   }
 

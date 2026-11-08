@@ -39,6 +39,10 @@ jobs:
             /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes:0 string $IOS_REVERSED_ID" ios/Runner/Info.plist 2>/dev/null || true
           fi
       - run: flutter pub get
+      - run: dart run flutter_launcher_icons
+      - name: Set iOS app display name
+        run: |
+          /usr/libexec/PlistBuddy -c "Add :CFBundleDisplayName string OZD WEAR" ios/Runner/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName OZD WEAR" ios/Runner/Info.plist
       - run: flutter analyze --no-fatal-infos
       - run: flutter test
       - run: flutter build ios --release --no-codesign $FIREBASE_DEFINES
