@@ -678,7 +678,24 @@ class OzdMobileApiService
 
 	private static function bearer(): string
 	{
-		$header = trim((string) ($_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? $_SERVER['HTTP_X_AUTHORIZATION'] ?? ''));
+		$header = '';
+		foreach (['HTTP_AUTHORIZATION', 'REDIRECT_HTTP_AUTHORIZATION', 'HTTP_X_AUTHORIZATION'] as $key) {
+			$value = trim((string) ($_SERVER[$key] ?? ''));
+			if ($value !== '') {
+				$header = $value;
+				break;
+			}
+		}
+		if ($header === '') {
+			foreach (['HTTP_X_ACCESS_TOKEN', 'HTTP_X_AUTH_TOKEN', 'HTTP_ACCESS_TOKEN'] as $key) {
+				$value = trim((string) ($_SERVER[$key] ?? ''));
+				if ($value !== '') {
+					$header = (stripos($value, 'Bearer ') === 0 ? '' : 'Bearer ') . $value;
+					break;
+				}
+			}
+		}
+		if ($header === '' && isset($_GET['access_token'])) $header = 'Bearer ' . trim((string) $_GET['access_token']);
 		return preg_match('/^Bearer\s+(.+)$/i', $header, $m) ? trim($m[1]) : '';
 	}
 

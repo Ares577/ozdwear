@@ -21,8 +21,13 @@ jobs:
       - name: Create native platform folders when absent
         run: |
           if [ ! -d ios ]; then flutter create --platforms=ios --org com.ozdwear .; fi
+          # Keep the iOS bundle identifier aligned with the registered app.
+          sed -i '' 's/com\.ozdwear\.ozdWearApp/com.ozdwear.app/g; s/com\.ozdwear\.ozd_wear_app/com.ozdwear.app/g' ios/Runner.xcodeproj/project.pbxproj
           rm -f test/widget_test.dart
           sed -i '' "s/# platform :ios, '12.0'/platform :ios, '13.0'/" ios/Podfile
+          if [ -n "${{ secrets.OZD_GOOGLE_IOS_CLIENT_ID }}" ]; then
+            /usr/libexec/PlistBuddy -c "Add :GIDClientID string ${{ secrets.OZD_GOOGLE_IOS_CLIENT_ID }}" ios/Runner/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :GIDClientID ${{ secrets.OZD_GOOGLE_IOS_CLIENT_ID }}" ios/Runner/Info.plist
+          fi
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos
       - run: flutter test

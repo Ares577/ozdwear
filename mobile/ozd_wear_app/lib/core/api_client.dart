@@ -31,6 +31,7 @@ class ApiClient {
       // that do not forward the standard Authorization header.
       headers['Authorization'] = 'Bearer $token';
       headers['X-Authorization'] = 'Bearer $token';
+      headers['X-Access-Token'] = token;
     }
     if (body != null) headers['Content-Type'] = 'application/json';
     final uri = Uri.parse(endpoint).replace(queryParameters: params);

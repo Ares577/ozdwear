@@ -125,20 +125,17 @@ class AppState extends ChangeNotifier {
   }
 
   Future<String?> login(String login, String password) async {
-    try { final result = await api.post('auth/login', body: {'login': login, 'password': password}); await session.save(access: result['data']['access_token'], refresh: result['data']['refresh_token']); signedIn = true; await Future.wait([loadProfile(), loadNotifications(), loadFavorites(), loadCart()]); await PushService.register(this); notifyListeners(); return null; } catch (e) { return e.toString(); }
+    try {
+      final result = await api.post('auth/login', body: {'login': login, 'password': password});
+      return _completeLogin(result);
+    } catch (e) { return e.toString(); }
   }
   Future<String?> register(String name, String phone, String email, String password) async {
     try {
       final result = await api.post('auth/register', body: {'full_name': name, 'phone': phone, 'email': email, 'password': password});
       final data = result['data'];
-      if (data is Map && data['access_token'] != null) {
-        await session.save(access: data['access_token'], refresh: data['refresh_token']);
-        signedIn = true;
-        await Future.wait([loadProfile(), loadNotifications(), loadFavorites(), loadCart()]);
-        await PushService.register(this);
-        notifyListeners();
-      }
-      return null;
+      if (data is! Map || '${data['access_token'] ?? ''}'.isEmpty || '${data['refresh_token'] ?? ''}'.isEmpty) return 'Sunucu oturum anahtarı döndürmedi';
+      return _completeLogin(result);
     } catch (e) { return e.toString(); }
   }
   Future<String?> forgotPassword(String email) async { try { await api.post('auth/forgot-password', body: {'email': email}); return null; } catch (e) { return e.toString(); } }
@@ -147,6 +144,10 @@ class AppState extends ChangeNotifier {
     if (!googleLoginEnabled || googleServerClientId.isEmpty) return 'Google ile giriş yapılandırılmamış';
     try {
       final signIn = GoogleSignIn(scopes: const ['email', 'profile'], serverClientId: googleServerClientId);
+      // Clear a stale native session before starting a new authorization flow.
+      // This prevents the plugin from reusing an invalid account after an app
+      // update or a changed Google OAuth configuration.
+      await signIn.signOut();
       final account = await signIn.signIn();
       if (account == null) return 'Google girişi iptal edildi';
       final code = account.serverAuthCode;
@@ -154,13 +155,30 @@ class AppState extends ChangeNotifier {
       final token = code != null && code.isNotEmpty ? {'code': code} : {'id_token': (await idToken) ?? ''};
       if ('${token.values.first}'.isEmpty) return 'Google kimlik doğrulama bilgisi alınamadı';
       final result = await api.post('auth/google', body: token);
-      await session.save(access: result['data']['access_token'], refresh: result['data']['refresh_token']);
-      signedIn = true;
+      return _completeLogin(result);
+    } catch (e) {
+      final message = e.toString();
+      if (message.contains('sign_in_failed') || message.contains('DEVELOPER_ERROR') || message.contains('ApiException: 10')) {
+        return 'Google girişi yapılandırması geçersiz. Android OAuth istemcisi ve SHA-1 bilgilerini kontrol edin.';
+      }
+      return message;
+    }
+  }
+  Future<String?> _completeLogin(Map<String, dynamic> result) async {
+    final data = result['data'];
+    if (data is! Map || '${data['access_token'] ?? ''}'.isEmpty || '${data['refresh_token'] ?? ''}'.isEmpty) return 'Sunucu geçerli oturum anahtarı döndürmedi';
+    await session.save(access: '${data['access_token']}', refresh: '${data['refresh_token']}');
+    final saved = await session.accessToken;
+    if (saved == null || saved.isEmpty) return 'Oturum anahtarı cihazda saklanamadı';
+    signedIn = true;
+    // The token is valid even if one optional initial data request fails. Do
+    // not turn a successful login into a false authentication error.
+    try {
       await Future.wait([loadProfile(), loadNotifications(), loadFavorites(), loadCart()]);
-      await PushService.register(this);
-      notifyListeners();
-      return null;
-    } catch (e) { return e.toString(); }
+    } catch (_) {}
+    await PushService.register(this);
+    notifyListeners();
+    return null;
   }
   Future<void> logout() async { try { await api.post('auth/logout'); } catch (_) {} await session.clear(); signedIn = false; favorites = []; cart = {}; profile = {}; notifications = []; unreadNotifications = 0; notifyListeners(); }
   Future<void> loadProfile() async { final result = await api.get('profile'); profile = Map<String, dynamic>.from((result['data'] as Map?) ?? const {}); notifyListeners(); }
