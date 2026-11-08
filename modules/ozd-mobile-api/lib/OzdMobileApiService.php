@@ -52,6 +52,9 @@ class OzdMobileApiService
 		if ($resource === 'newsletter' && $method === 'POST') self::newsletter($data);
 		if ($resource === 'cms' && $method === 'GET') self::cms((string) ($parts[1] ?? ''));
 		if ($resource === 'track' && $method === 'GET') self::track((string) ($_GET['reference'] ?? ''));
+		if ($resource === 'price-alert' && $method === 'POST') self::priceAlert($data);
+		if ($resource === 'stock-alert' && $method === 'POST') self::stockAlert($data);
+		if ($resource === 'products' && ($parts[2] ?? '') === 'questions') self::questions($method, $id, $data, $user);
 		if ($resource === 'products') self::products($method, $id, $data);
 		if ($resource === 'reviews' && $method === 'POST') self::review($data, $user);
 		if ($resource === 'categories' && $method === 'GET') self::categories();
@@ -85,6 +88,59 @@ class OzdMobileApiService
 		$order = Order::trackByReference($reference, $idUser);
 		if (!$order) self::respond(['success' => false, 'message' => 'Sipariş bulunamadı'], 404);
 		self::respond(['success' => true, 'data' => $order]);
+	}
+
+	private static function priceAlert(array $data): void
+	{
+		if (!Module::isEnabled('alert-price')) {
+			self::respond(['success' => false, 'message' => 'Fiyat alarmı etkin değil'], 503);
+		}
+		if (!class_exists('AlertPriceModule', false)) {
+			$file = dirname(__DIR__, 2) . '/alert-price/alert-price.php';
+			if (is_file($file)) require_once $file;
+		}
+		if (!class_exists('AlertPriceModule', false)) {
+			self::respond(['success' => false, 'message' => 'Fiyat alarmı servisi bulunamadı'], 503);
+		}
+		$idUser = self::optionalAuthenticatedUserId();
+		$result = AlertPriceModule::subscribe(
+			(int) ($data['product_id'] ?? 0),
+			(string) ($data['email'] ?? ''),
+			(float) ($data['target_price'] ?? $data['price'] ?? 0),
+			$idUser
+		);
+		self::respond($result, !empty($result['success']) ? 201 : 422);
+	}
+
+	private static function stockAlert(array $data): void
+	{
+		if (!Module::isEnabled('alert')) {
+			self::respond(['success' => false, 'message' => 'Stok alarmı etkin değil'], 503);
+		}
+		$file = dirname(__DIR__, 2) . '/alert/lib/AlertService.php';
+		if (!class_exists('AlertService', false) && is_file($file)) require_once $file;
+		if (!class_exists('AlertService', false)) {
+			self::respond(['success' => false, 'message' => 'Stok alarmı servisi bulunamadı'], 503);
+		}
+		$email = trim((string) ($data['email'] ?? ''));
+		$idUser = self::optionalAuthenticatedUserId();
+		$result = AlertService::subscribeStockAlert(
+			(int) ($data['product_id'] ?? 0),
+			$email,
+			(int) ($data['variation_id'] ?? 0),
+			$idUser
+		);
+		self::respond($result, !empty($result['success']) ? 201 : 422);
+	}
+
+	private static function optionalAuthenticatedUserId(): ?int
+	{
+		$raw = self::bearer();
+		if ($raw === '') return null;
+		$row = DB::getRowSafe('mobile_access_tokens', 'token_hash = ? AND token_type = ? AND revoked_at IS NULL AND expires_at > NOW()', [hash('sha256', $raw), 'access']);
+		if (!$row) return null;
+		$_SESSION['id_user'] = (int) $row['id_user'];
+		return (int) $row['id_user'];
 	}
 
 	private static function auth(string $action, array $data, ?array $user): void
@@ -252,6 +308,8 @@ class OzdMobileApiService
 			$product['variations'] = ProductVariation::getForStorefront($id, $basePrice);
 			$product['option_groups'] = class_exists('ProductOption', false) ? ProductOption::getForStorefront($id) : ['has_options' => false, 'groups' => []];
 			$product['reviews'] = class_exists('ReviewsModule', false) ? ReviewsModule::getApprovedForProduct($id, 50) : [];
+			$product['product_questions'] = self::optionalProductQuestions($id);
+			$product['product_set'] = self::optionalProductSet($id, $product);
 			$product['product_tabs'] = self::optionalProductData('product-tabs', 'ProductTabsService', 'ProductTabsService.php', 'getTabsForProduct', $id);
 			$product['siblings'] = self::optionalProductData('product-siblings', 'ProductSiblingsService', 'ProductSiblingsService.php', 'getSiblingsForProduct', $id);
 			$product['cart_promo_offers'] = class_exists('CartPromotion', false) ? CartPromotion::getProductPageOffers($basePrice) : [];
@@ -288,6 +346,46 @@ class OzdMobileApiService
 			return self::normalizeProductAssets($row);
 		}, $rows);
 		self::respond(['success' => true, 'data' => $rows, 'meta' => ['page' => $page, 'limit' => $limit, 'total' => $total, 'query' => $query]]);
+	}
+
+	private static function questions(string $method, int $idProduct, array $data, ?array $user): void
+	{
+		if ($idProduct <= 0) self::respond(['success' => false, 'message' => 'Ürün bulunamadı'], 404);
+		if (!Module::isEnabled('question')) self::respond(['success' => true, 'data' => []]);
+		if (!class_exists('QuestionModule', false)) {
+			$file = dirname(__DIR__, 2) . '/question/question.php';
+			if (is_file($file)) require_once $file;
+		}
+		if (!class_exists('QuestionModule', false)) self::respond(['success' => true, 'data' => []]);
+		if ($method === 'GET') self::respond(['success' => true, 'data' => QuestionModule::getPublishedForProduct($idProduct, 50)]);
+		if (!$user && $method === 'POST' && self::optionalAuthenticatedUserId() !== null) $user = Customer::getCurrent();
+		if ($method !== 'POST' || !$user) self::respond(['success' => false, 'message' => 'Soru göndermek için giriş yapmalısınız'], 401);
+		if (empty($_SESSION['question_form_started'])) $_SESSION['question_form_started'] = time() - 5;
+		$result = QuestionModule::submit($idProduct, (string) ($data['question'] ?? $data['message'] ?? ''), (int) $user['id_user'], []);
+		self::respond($result, !empty($result['success']) ? 201 : 422);
+	}
+
+	private static function optionalProductQuestions(int $idProduct): array
+	{
+		if (!Module::isEnabled('question')) return [];
+		if (!class_exists('QuestionModule', false)) {
+			$file = dirname(__DIR__, 2) . '/question/question.php';
+			if (is_file($file)) require_once $file;
+		}
+		return class_exists('QuestionModule', false) ? QuestionModule::getPublishedForProduct($idProduct, 50) : [];
+	}
+
+	private static function optionalProductSet(int $idProduct, array $product): array
+	{
+		if (!Module::isEnabled('product-set') || empty($product['is_pack'])) return [];
+		$file = dirname(__DIR__, 2) . '/product-set/lib/ProductSetService.php';
+		if (!class_exists('ProductSetService', false) && is_file($file)) require_once $file;
+		if (!class_exists('ProductSetService', false)) return [];
+		return [
+			'items' => ProductSetService::getItems($idProduct),
+			'pricing' => ProductSetService::getPricing($idProduct, $product),
+			'available_stock' => ProductSetService::getAvailableStock($idProduct),
+		];
 	}
 
 	private static function categories(): void
@@ -464,7 +562,7 @@ class OzdMobileApiService
 
 	private static function authenticate(string $route, string $method): ?array
 	{
-		if (in_array($route, ['auth/login', 'auth/register', 'auth/refresh', 'auth/forgot-password', 'auth/reset-password', 'contact', 'track', 'popup', 'newsletter'], true) || $route === 'bootstrap' || $route === 'products' || strpos($route, 'products/') === 0 || $route === 'categories' || $route === 'brands' || strpos($route, 'cms/') === 0) return null;
+		if (in_array($route, ['auth/login', 'auth/register', 'auth/refresh', 'auth/forgot-password', 'auth/reset-password', 'contact', 'track', 'popup', 'newsletter', 'price-alert', 'stock-alert'], true) || $route === 'bootstrap' || $route === 'products' || strpos($route, 'products/') === 0 || $route === 'categories' || $route === 'brands' || strpos($route, 'cms/') === 0) return null;
 		$raw = self::bearer();
 		if ($raw === '') self::respond(['success' => false, 'message' => 'Bearer token gerekli'], 401);
 		$row = DB::getRowSafe('mobile_access_tokens', 'token_hash = ? AND token_type = ? AND revoked_at IS NULL AND expires_at > NOW()', [hash('sha256', $raw), 'access']);

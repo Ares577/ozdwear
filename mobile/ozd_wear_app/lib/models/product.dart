@@ -24,8 +24,10 @@ class Product {
   final List<dynamic> siblings;
   final String extraText;
   final List<dynamic> cartPromoOffers;
+  final List<dynamic> questions;
+  final Map<String, dynamic> productSet;
 
-  const Product({required this.id, required this.name, required this.image, required this.price, required this.oldPrice, this.description = '', this.images = const [], this.variations = const [], this.variationGroups = const [], this.optionGroups = const [], this.url = '', this.brand = '', this.category = '', this.inStock = true, this.rating = 0, this.reviewCount = 0, this.reviews = const [], this.relatedProducts = const [], this.saleUnit = 'piece', this.isM2 = false, this.isPack = false, this.productTabs = const [], this.siblings = const [], this.extraText = '', this.cartPromoOffers = const []});
+  const Product({required this.id, required this.name, required this.image, required this.price, required this.oldPrice, this.description = '', this.images = const [], this.variations = const [], this.variationGroups = const [], this.optionGroups = const [], this.url = '', this.brand = '', this.category = '', this.inStock = true, this.rating = 0, this.reviewCount = 0, this.reviews = const [], this.relatedProducts = const [], this.saleUnit = 'piece', this.isM2 = false, this.isPack = false, this.productTabs = const [], this.siblings = const [], this.extraText = '', this.cartPromoOffers = const [], this.questions = const [], this.productSet = const {}});
 
   factory Product.fromJson(Map<String, dynamic> json) {
     int asInt(dynamic value) => int.tryParse('$value') ?? 0;
@@ -72,6 +74,8 @@ class Product {
       siblings: (json['siblings'] as List?) ?? const [],
       extraText: '${json['extra_text'] ?? ''}',
       cartPromoOffers: (json['cart_promo_offers'] as List?) ?? const [],
+      questions: (json['product_questions'] as List?) ?? (json['questions'] as List?) ?? const [],
+      productSet: Map<String, dynamic>.from((json['product_set'] as Map?) ?? const {}),
     );
   }
 }
