@@ -61,9 +61,6 @@ class _StoreWebViewScreenState extends State<StoreWebViewScreen> {
       // request as an unknown embedded browser.
       ..setUserAgent('Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 Chrome/131.0.0.0 Mobile Safari/537.36')
       ..enableZoom(false)
-      ..setVerticalScrollBarEnabled(false)
-      ..setHorizontalScrollBarEnabled(false)
-      ..setOverScrollMode(WebViewOverScrollMode.never)
       ..setNavigationDelegate(
         NavigationDelegate(
           onNavigationRequest: (request) {
