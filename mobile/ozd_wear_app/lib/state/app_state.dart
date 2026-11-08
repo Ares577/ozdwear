@@ -88,6 +88,7 @@ class AppState extends ChangeNotifier {
     } catch (e) { return e.toString(); }
   }
   Future<String?> forgotPassword(String email) async { try { await api.post('auth/forgot-password', body: {'email': email}); return null; } catch (e) { return e.toString(); } }
+  Future<String?> resetPassword(String token, String password, String confirmation) async { try { await api.post('auth/reset-password', body: {'token': token, 'password': password, 'password_confirmation': confirmation}); return null; } catch (e) { return e.toString(); } }
   Future<String?> loginWithGoogle() async {
     if (!googleLoginEnabled || googleServerClientId.isEmpty) return 'Google ile giriş yapılandırılmamış';
     try {
