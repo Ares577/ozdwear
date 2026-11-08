@@ -215,6 +215,10 @@ class OzdMobileApiService
 			$product['variations'] = ProductVariation::getForStorefront($id, $basePrice);
 			$product['option_groups'] = class_exists('ProductOption', false) ? ProductOption::getForStorefront($id) : ['has_options' => false, 'groups' => []];
 			$product['reviews'] = class_exists('ReviewsModule', false) ? ReviewsModule::getApprovedForProduct($id, 50) : [];
+			$product['product_tabs'] = self::optionalProductData('product-tabs', 'ProductTabsService', 'ProductTabsService.php', 'getTabsForProduct', $id);
+			$product['siblings'] = self::optionalProductData('product-siblings', 'ProductSiblingsService', 'ProductSiblingsService.php', 'getSiblingsForProduct', $id);
+			$product['cart_promo_offers'] = class_exists('CartPromotion', false) ? CartPromotion::getProductPageOffers($basePrice) : [];
+			$product['extra_text'] = Module::isEnabled('product-extra-text') ? (string) Settings::get('PRODUCT_EXTRA_TEXT_CONTENT') : '';
 			$related = Product::getRelatedForProduct($product, 12);
 			$product['related_products'] = array_map(static function (array $row): array { return self::normalizeProductAssets($row); }, (array) ($related['products'] ?? []));
 			$product = self::normalizeProductAssets($product);
@@ -295,6 +299,16 @@ class OzdMobileApiService
 		$product['images'] = $images;
 		$product['image_url'] = (string) ($product['image_url'] ?? ($images[0]['url'] ?? ''));
 		return $product;
+	}
+
+	private static function optionalProductData(string $module, string $class, string $fileName, string $method, int $id): array
+	{
+		if (!Module::isEnabled($module)) return [];
+		if (!class_exists($class, false)) {
+			$file = dirname(__DIR__, 2) . '/' . $module . '/lib/' . $fileName;
+			if (is_file($file)) require_once $file;
+		}
+		return class_exists($class, false) && method_exists($class, $method) ? (array) $class::$method($id) : [];
 	}
 
 	private static function favorites(string $method, int $id, ?array $user): void

@@ -20,8 +20,12 @@ class Product {
   final String saleUnit;
   final bool isM2;
   final bool isPack;
+  final List<dynamic> productTabs;
+  final List<dynamic> siblings;
+  final String extraText;
+  final List<dynamic> cartPromoOffers;
 
-  const Product({required this.id, required this.name, required this.image, required this.price, required this.oldPrice, this.description = '', this.images = const [], this.variations = const [], this.variationGroups = const [], this.optionGroups = const [], this.url = '', this.brand = '', this.category = '', this.inStock = true, this.rating = 0, this.reviewCount = 0, this.reviews = const [], this.relatedProducts = const [], this.saleUnit = 'piece', this.isM2 = false, this.isPack = false});
+  const Product({required this.id, required this.name, required this.image, required this.price, required this.oldPrice, this.description = '', this.images = const [], this.variations = const [], this.variationGroups = const [], this.optionGroups = const [], this.url = '', this.brand = '', this.category = '', this.inStock = true, this.rating = 0, this.reviewCount = 0, this.reviews = const [], this.relatedProducts = const [], this.saleUnit = 'piece', this.isM2 = false, this.isPack = false, this.productTabs = const [], this.siblings = const [], this.extraText = '', this.cartPromoOffers = const []});
 
   factory Product.fromJson(Map<String, dynamic> json) {
     int asInt(dynamic value) => int.tryParse('$value') ?? 0;
@@ -64,6 +68,10 @@ class Product {
       saleUnit: '${json['sale_unit'] ?? 'piece'}',
       isM2: json['is_m2'] == true || json['is_m2'] == 1,
       isPack: json['is_pack'] == true || json['is_pack'] == 1,
+      productTabs: (json['product_tabs'] as List?) ?? const [],
+      siblings: (json['siblings'] as List?) ?? const [],
+      extraText: '${json['extra_text'] ?? ''}',
+      cartPromoOffers: (json['cart_promo_offers'] as List?) ?? const [],
     );
   }
 }

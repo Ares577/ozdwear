@@ -90,7 +90,14 @@ class _ProductScreenState extends State<ProductScreen> {
           ...optionData.whereType<Map>().map((group) { final name = '${group['name'] ?? ''}'; final values = ((group['values'] as List?) ?? const []).map((value) => '$value').toList(); return Padding(padding: const EdgeInsets.only(top: 10), child: DropdownButtonFormField<String>(value: selectedOptions[name], decoration: InputDecoration(labelText: name, border: const OutlineInputBorder()), items: values.map((value) => DropdownMenuItem(value: value, child: Text(value))).toList(), onChanged: (value) => setState(() { if (value != null) selectedOptions[name] = value; }))); }),
         ],
         if (item.isM2) const Padding(padding: EdgeInsets.only(top: 14), child: Text('Bu ürün ölçüye göre hesaplanır. Genişlik ve uzunluk bilgilerini ödeme adımında kontrol edin.')),
+        if (item.cartPromoOffers.isNotEmpty) ...item.cartPromoOffers.whereType<Map>().map((offer) => Card(color: Colors.black, child: Padding(padding: const EdgeInsets.all(12), child: Text('${offer['title'] ?? offer['label'] ?? offer['text'] ?? ''}', style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700))))),
         if (item.description.isNotEmpty) Padding(padding: const EdgeInsets.symmetric(vertical: 20), child: Text(item.description)),
+        if (item.extraText.trim().isNotEmpty) ExpansionTile(title: const Text('Ürün bilgileri'), children: [Padding(padding: const EdgeInsets.all(16), child: Text(item.extraText))]),
+        if (item.productTabs.isNotEmpty) ...item.productTabs.whereType<Map>().map((tab) => ExpansionTile(title: Text('${tab['title'] ?? 'Bilgi'}'), children: [Padding(padding: const EdgeInsets.all(16), child: Text('${tab['content'] ?? ''}'))])),
+        if (item.siblings.length > 1) ...[
+          const SizedBox(height: 18), const Text('Diğer seçenekler', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)), const SizedBox(height: 8),
+          SizedBox(height: 220, child: ListView.separated(scrollDirection: Axis.horizontal, itemCount: item.siblings.length, separatorBuilder: (_, __) => const SizedBox(width: 10), itemBuilder: (_, index) { final value = item.siblings[index]; if (value is! Map) return const SizedBox.shrink(); final sibling = Product.fromJson(Map<String, dynamic>.from(value)); return SizedBox(width: 140, child: ProductCard(product: sibling, onTap: () => Navigator.pushReplacementNamed(context, '/product', arguments: sibling))); })),
+        ],
         if (item.rating > 0 || item.reviews.isNotEmpty) ...[
           const Divider(height: 32), Text('Müşteri değerlendirmeleri${item.reviewCount > 0 ? ' (${item.reviewCount})' : ''}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
           if (item.rating > 0) Padding(padding: const EdgeInsets.only(top: 8), child: Text('★ ${item.rating.toStringAsFixed(1)} / 5')),
