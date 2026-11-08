@@ -15,7 +15,37 @@ class ProductScreen extends StatefulWidget {
 class _ProductScreenState extends State<ProductScreen> {
   int selectedImage = 0;
   int selectedVariation = 0;
+  int reviewRating = 5;
+  final reviewTitle = TextEditingController();
+  final reviewComment = TextEditingController();
+  bool reviewBusy = false;
   Product? detail;
+
+  @override
+  void dispose() {
+    reviewTitle.dispose();
+    reviewComment.dispose();
+    super.dispose();
+  }
+
+  Future<void> _submitReview(Product product) async {
+    if (reviewComment.text.trim().length < 10) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Yorum en az 10 karakter olmalı.')));
+      return;
+    }
+    setState(() => reviewBusy = true);
+    try {
+      final result = await context.read<AppState>().api.post('reviews', body: {'product_id': product.id, 'rating': reviewRating, 'title': reviewTitle.text.trim(), 'comment': reviewComment.text.trim()});
+      if (!mounted) return;
+      reviewTitle.clear();
+      reviewComment.clear();
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${result['message'] ?? 'Yorumunuz alındı.'}')));
+    } catch (error) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error')));
+    } finally {
+      if (mounted) setState(() => reviewBusy = false);
+    }
+  }
 
   @override
   void didChangeDependencies() {
@@ -105,6 +135,17 @@ class _ProductScreenState extends State<ProductScreen> {
             Text('Müşteri değerlendirmeleri${product.reviewCount > 0 ? ' (${product.reviewCount})' : ''}', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
             if (product.rating > 0) Padding(padding: const EdgeInsets.only(top: 8), child: Text('★ ${product.rating.toStringAsFixed(1)} / 5')),
             ...product.reviews.take(10).map((review) { final item = review is Map ? review : <String, dynamic>{}; return ListTile(contentPadding: EdgeInsets.zero, title: Text('${item['title'] ?? 'Değerlendirme'}'), subtitle: Text('${item['comment'] ?? ''}'), trailing: Text('★ ${item['rating'] ?? ''}')); }),
+          ],
+          if (context.watch<AppState>().signedIn) ...[
+            const Divider(height: 32),
+            const Text('Değerlendirme yaz', style: TextStyle(fontSize: 18, fontWeight: FontWeight.w800)),
+            const SizedBox(height: 8),
+            Wrap(spacing: 4, children: List.generate(5, (i) => IconButton(onPressed: () => setState(() => reviewRating = i + 1), icon: Icon(i < reviewRating ? Icons.star : Icons.star_border), color: Colors.black, tooltip: '${i + 1} yıldız'))),
+            TextField(controller: reviewTitle, decoration: const InputDecoration(labelText: 'Başlık')),
+            const SizedBox(height: 8),
+            TextField(controller: reviewComment, maxLines: 4, decoration: const InputDecoration(labelText: 'Yorumunuz', border: OutlineInputBorder())),
+            const SizedBox(height: 10),
+            FilledButton(onPressed: reviewBusy ? null : () => _submitReview(product), child: Text(reviewBusy ? 'Gönderiliyor...' : 'Yorumu gönder')),
           ],
           if (product.relatedProducts.isNotEmpty) ...[
             const Divider(height: 34),

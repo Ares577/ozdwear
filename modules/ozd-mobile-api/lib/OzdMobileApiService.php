@@ -51,6 +51,7 @@ class OzdMobileApiService
 		if ($resource === 'cms' && $method === 'GET') self::cms((string) ($parts[1] ?? ''));
 		if ($resource === 'track' && $method === 'GET') self::track((string) ($_GET['reference'] ?? ''));
 		if ($resource === 'products') self::products($method, $id, $data);
+		if ($resource === 'reviews' && $method === 'POST') self::review($data, $user);
 		if ($resource === 'categories' && $method === 'GET') self::categories();
 		if ($resource === 'brands' && $method === 'GET') self::brands();
 		if ($resource === 'favorites') self::favorites($method, $id, $user);
@@ -244,6 +245,14 @@ class OzdMobileApiService
 			return $row;
 		}, $rows);
 		self::respond(['success' => true, 'data' => $rows]);
+	}
+
+	private static function review(array $data, ?array $user): void
+	{
+		if (!$user) self::respond(['success' => false, 'message' => 'Giriş yapmalısınız'], 401);
+		if (!class_exists('ReviewsModule', false)) self::respond(['success' => false, 'message' => 'Yorum modülü etkin değil'], 503);
+		$result = ReviewsModule::submit((int) ($data['product_id'] ?? 0), (int) ($data['rating'] ?? 5), (string) ($data['title'] ?? ''), (string) ($data['comment'] ?? ''), (int) $user['id_user']);
+		self::respond($result, !empty($result['success']) ? 201 : 422);
 	}
 
 	private static function brands(): void
