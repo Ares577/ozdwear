@@ -42,7 +42,7 @@ class _HomeScreenState extends State<HomeScreen> {
         child: CustomScrollView(slivers: [
           SliverAppBar(
             pinned: true,
-            backgroundColor: const Color(0xfff7f7f5),
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
             title: headerLogo.isEmpty
                 ? Image.asset('assets/branding/ozdwear-logo.png', width: 120, height: 28, fit: BoxFit.contain, errorBuilder: (_, __, ___) => const Text('OZD WEAR', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5)))
                 : CachedNetworkImage(imageUrl: headerLogo, height: 28, errorWidget: (_, __, ___) => const Text('OZD WEAR')),

@@ -10,6 +10,9 @@ class AppTheme {
     final background = parse('background', const Color(0xfff7f7f5));
     final ink = parse('ink', Colors.black);
     final accent = parse('accent', Colors.black);
-    return ThemeData(useMaterial3: true, scaffoldBackgroundColor: background, colorScheme: ColorScheme.fromSeed(seedColor: accent, brightness: Brightness.light), fontFamily: 'Arial', appBarTheme: AppBarTheme(backgroundColor: background, foregroundColor: ink, elevation: 0), textTheme: ThemeData.light().textTheme.apply(bodyColor: ink, displayColor: ink));
+    final surface = parse('surface', Colors.white);
+    final border = parse('border', const Color(0xffe5e5e5));
+    final scheme = ColorScheme.fromSeed(seedColor: accent, brightness: Brightness.light).copyWith(surface: surface, outline: border);
+    return ThemeData(useMaterial3: true, scaffoldBackgroundColor: background, colorScheme: scheme, fontFamily: 'Arial', appBarTheme: AppBarTheme(backgroundColor: background, foregroundColor: ink, elevation: 0), cardTheme: CardThemeData(color: surface, surfaceTintColor: surface), inputDecorationTheme: InputDecorationTheme(enabledBorder: OutlineInputBorder(borderSide: BorderSide(color: border)), focusedBorder: OutlineInputBorder(borderSide: BorderSide(color: accent, width: 2))), textTheme: ThemeData.light().textTheme.apply(bodyColor: ink, displayColor: ink));
   }
 }

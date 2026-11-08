@@ -212,6 +212,8 @@ class OzdMobileApiService
 
 	private static function bootstrap(): void
 	{
+		$themeName = class_exists('Theme', false) ? Theme::resolveActive((string) Settings::get('THEME')) : 'theme4';
+		$themeColors = class_exists('Theme', false) ? Theme::getColors($themeName) : [];
 		$logos = class_exists('SiteAssets', false) ? SiteAssets::getLogos() : [];
 		$googleEnabled = class_exists('GoogleLoginModule', false) && Module::isEnabled('google-login') && trim((string) Settings::get('GOOGLE_CLIENT_ID')) !== '';
 		$slides = [];
@@ -245,7 +247,15 @@ class OzdMobileApiService
 			'stories' => is_array($stories) ? $stories : [],
 			'mobile_menu' => is_array($menu) ? $menu : [],
 			'home_text' => $homeText,
-			'theme' => ['background' => '#f7f7f5', 'ink' => '#111111', 'muted' => '#767676', 'accent' => '#111111'],
+			'theme' => [
+				'name' => $themeName,
+				'background' => (string) ($themeColors['background'] ?? '#f7f7f5'),
+				'ink' => (string) ($themeColors['text'] ?? '#111111'),
+				'muted' => (string) ($themeColors['text-muted'] ?? '#767676'),
+				'accent' => (string) ($themeColors['primary'] ?? '#111111'),
+				'surface' => (string) ($themeColors['surface'] ?? '#ffffff'),
+				'border' => (string) ($themeColors['border'] ?? '#e5e5e5'),
+			],
 		]]);
 	}
 
