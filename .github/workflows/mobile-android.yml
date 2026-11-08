@@ -18,6 +18,10 @@ jobs:
           flutter-version: '3.24.5'
           channel: stable
           cache: true
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
       - name: Cache Android and Gradle dependencies
         uses: actions/cache@v4
         with:
