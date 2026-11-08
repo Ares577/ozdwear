@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
@@ -153,7 +154,12 @@ class _StoreWebViewScreenState extends State<StoreWebViewScreen> {
         throw Exception('Google hesabı girişi henüz yapılandırılmamış.');
       }
 
-      final signIn = GoogleSignIn(scopes: const ['email', 'profile'], serverClientId: serverClientId);
+      final iosClientId = const String.fromEnvironment('OZD_GOOGLE_IOS_CLIENT_ID');
+      final signIn = GoogleSignIn(
+        scopes: const ['email', 'profile'],
+        clientId: Platform.isIOS && iosClientId.isNotEmpty ? iosClientId : null,
+        serverClientId: serverClientId,
+      );
       // Explicit sign-out forces the native Google services account chooser to
       // appear, even when a previous account is still cached on the device.
       await signIn.signOut();

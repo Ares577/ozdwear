@@ -27,6 +27,13 @@ jobs:
           sed -i '' "s/# platform :ios, '12.0'/platform :ios, '13.0'/" ios/Podfile
           if [ -n "${{ secrets.OZD_GOOGLE_IOS_CLIENT_ID }}" ]; then
             /usr/libexec/PlistBuddy -c "Add :GIDClientID string ${{ secrets.OZD_GOOGLE_IOS_CLIENT_ID }}" ios/Runner/Info.plist 2>/dev/null || /usr/libexec/PlistBuddy -c "Set :GIDClientID ${{ secrets.OZD_GOOGLE_IOS_CLIENT_ID }}" ios/Runner/Info.plist
+            IOS_CLIENT_ID="${{ secrets.OZD_GOOGLE_IOS_CLIENT_ID }}"
+            IOS_REVERSED_ID="com.googleusercontent.apps.${IOS_CLIENT_ID%.apps.googleusercontent.com}"
+            /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes array" ios/Runner/Info.plist 2>/dev/null || true
+            /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0 dict" ios/Runner/Info.plist 2>/dev/null || true
+            /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleTypeRole string Editor" ios/Runner/Info.plist 2>/dev/null || true
+            /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes array" ios/Runner/Info.plist 2>/dev/null || true
+            /usr/libexec/PlistBuddy -c "Add :CFBundleURLTypes:0:CFBundleURLSchemes:0 string $IOS_REVERSED_ID" ios/Runner/Info.plist 2>/dev/null || true
           fi
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos
@@ -38,6 +45,7 @@ jobs:
             --dart-define=OZD_FIREBASE_PROJECT_ID=${{ secrets.OZD_FIREBASE_PROJECT_ID }}
             --dart-define=OZD_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.OZD_FIREBASE_MESSAGING_SENDER_ID }}
             --dart-define=OZD_FIREBASE_IOS_APP_ID=${{ secrets.OZD_FIREBASE_IOS_APP_ID }}
+            --dart-define=OZD_GOOGLE_IOS_CLIENT_ID=${{ secrets.OZD_GOOGLE_IOS_CLIENT_ID }}
       - name: Package unsigned IPA
         run: |
           mkdir -p build/unsigned_ipa/Payload
