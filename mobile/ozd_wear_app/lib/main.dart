@@ -1,6 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
+import 'package:google_sign_in/google_sign_in.dart';
+import 'package:http/http.dart' as http;
 import 'package:webview_flutter/webview_flutter.dart';
 
 const _storeUrl = 'https://ozdwear.com/';
@@ -36,6 +40,7 @@ class _StoreWebViewScreenState extends State<StoreWebViewScreen> {
   Timer? _splashTimer;
   bool _showSplash = true;
   bool _loaded = false;
+  bool _googleBusy = false;
   String? _errorMessage;
 
   @override
@@ -56,8 +61,19 @@ class _StoreWebViewScreenState extends State<StoreWebViewScreen> {
       // request as an unknown embedded browser.
       ..setUserAgent('Mozilla/5.0 (Linux; Android 13; Mobile) AppleWebKit/537.36 Chrome/131.0.0.0 Mobile Safari/537.36')
       ..enableZoom(false)
+      ..setVerticalScrollBarEnabled(false)
+      ..setHorizontalScrollBarEnabled(false)
+      ..setOverScrollMode(WebViewOverScrollMode.never)
       ..setNavigationDelegate(
         NavigationDelegate(
+          onNavigationRequest: (request) {
+            final url = request.url;
+            if (url.contains('/api/module.php') && url.contains('m=google-login') && url.contains('action=start')) {
+              unawaited(_nativeGoogleLogin());
+              return NavigationDecision.prevent;
+            }
+            return NavigationDecision.navigate;
+          },
           onPageStarted: (_) {
             if (!mounted) return;
             setState(() {
@@ -101,13 +117,83 @@ class _StoreWebViewScreenState extends State<StoreWebViewScreen> {
         if (!style) {
           style = document.createElement('style');
           style.id = 'ozd-app-webview-rules';
-          style.textContent = 'html,body{max-width:100%;overflow-x:hidden!important;overscroll-behavior-x:none!important;}body{-webkit-text-size-adjust:100%;}::-webkit-scrollbar{width:0!important;height:0!important;display:none!important;}';
+          style.textContent = 'html,body{width:100%;max-width:100%;overflow-x:hidden!important;overscroll-behavior:none!important;touch-action:pan-y!important;}body{-webkit-text-size-adjust:100%;}::-webkit-scrollbar{width:0!important;height:0!important;display:none!important;}';
           document.head.appendChild(style);
+        }
+        if (!window.__ozdHeaderLogoutBound) {
+          window.__ozdHeaderLogoutBound = true;
+          document.addEventListener('click', function (event) {
+            var button = event.target && event.target.closest ? event.target.closest('#logoutBtnHeader') : null;
+            if (!button) return;
+            event.preventDefault();
+            var endpoint = typeof authApiUrl !== 'undefined' ? authApiUrl : '/api/auth.php';
+            var token = typeof csrfToken !== 'undefined' ? csrfToken : '';
+            fetch(endpoint, {method:'POST', credentials:'same-origin', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:new URLSearchParams({action:'logout', token:token}).toString()})
+              .finally(function () { window.location.href = '/'; });
+          }, false);
         }
       })();
       ''');
     } catch (_) {
       // A navigation can finish while the document is being replaced.
+    }
+  }
+
+  Future<void> _nativeGoogleLogin() async {
+    if (_googleBusy) return;
+    if (mounted) setState(() => _googleBusy = true);
+
+    try {
+      final bootstrapResponse = await http.get(Uri.parse('$_storeUrl/api/module.php?m=ozd-mobile-api&action=api&route=bootstrap')).timeout(const Duration(seconds: 15));
+      if (bootstrapResponse.statusCode != 200) {
+        throw Exception('Google girişi şu anda kullanılamıyor.');
+      }
+      final bootstrap = jsonDecode(bootstrapResponse.body);
+      final data = bootstrap is Map ? bootstrap['data'] : null;
+      final google = data is Map ? data['google_login'] : null;
+      final serverClientId = google is Map ? (google['server_client_id'] ?? '').toString().trim() : '';
+      if (serverClientId.isEmpty) {
+        throw Exception('Google hesabı girişi henüz yapılandırılmamış.');
+      }
+
+      final signIn = GoogleSignIn(scopes: const ['email', 'profile'], serverClientId: serverClientId);
+      // Explicit sign-out forces the native Google services account chooser to
+      // appear, even when a previous account is still cached on the device.
+      await signIn.signOut();
+      final account = await signIn.signIn();
+      if (account == null) return;
+      final authentication = await account.authentication;
+      final idToken = authentication.idToken;
+      if (idToken == null || idToken.isEmpty) {
+        throw Exception('Google kimlik doğrulama belirteci alınamadı.');
+      }
+
+      final loginResponse = await http.post(
+        Uri.parse('$_storeUrl/api/module.php?m=ozd-mobile-api&action=api&route=auth/google'),
+        headers: const {'Content-Type': 'application/json', 'Accept': 'application/json'},
+        body: jsonEncode({'id_token': idToken}),
+      ).timeout(const Duration(seconds: 20));
+      final loginPayload = jsonDecode(loginResponse.body);
+      final loginData = loginPayload is Map ? loginPayload['data'] : null;
+      final accessToken = loginData is Map ? (loginData['access_token'] ?? '').toString().trim() : '';
+      if (loginResponse.statusCode < 200 || loginResponse.statusCode >= 300 || accessToken.isEmpty) {
+        final message = loginPayload is Map ? (loginPayload['message'] ?? 'Google girişi başarısız.').toString() : 'Google girişi başarısız.';
+        throw Exception(message);
+      }
+
+      final encodedToken = Uri(queryParameters: {'access_token': accessToken}).query;
+      await _controller?.loadRequest(
+        Uri.parse('$_storeUrl/api/module.php?m=ozd-mobile-api&action=web-session'),
+        method: LoadRequestMethod.post,
+        headers: const {'Content-Type': 'application/x-www-form-urlencoded', 'Accept': 'text/html'},
+        body: Uint8List.fromList(utf8.encode(encodedToken)),
+      );
+    } catch (error) {
+      if (mounted) {
+        setState(() => _errorMessage = error.toString().replaceFirst('Exception: ', ''));
+      }
+    } finally {
+      if (mounted) setState(() => _googleBusy = false);
     }
   }
 
@@ -168,6 +254,11 @@ class _StoreWebViewScreenState extends State<StoreWebViewScreen> {
               if (_controller != null && errorMessage == null) WebViewWidget(controller: _controller!),
               if (errorMessage != null) _ErrorView(message: errorMessage, onRetry: _retry),
               if (_showSplash) const _SplashView(),
+              if (_googleBusy)
+                const ColoredBox(
+                  color: Color(0x99FFFFFF),
+                  child: Center(child: CircularProgressIndicator(color: Colors.black)),
+                ),
             ],
           ),
         ),
