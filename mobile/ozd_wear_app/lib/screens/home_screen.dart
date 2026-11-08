@@ -32,7 +32,7 @@ class _HomeScreenState extends State<HomeScreen> {
               pinned: true,
               backgroundColor: const Color(0xfff7f7f5),
               title: headerLogo.isEmpty
-                  ? const Text('OZD WEAR', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5))
+                  ? Image.asset('assets/branding/ozdwear-logo.png', width: 120, height: 28, fit: BoxFit.contain, errorBuilder: (_, __, ___) => const Text('OZD WEAR', style: TextStyle(fontWeight: FontWeight.w900, letterSpacing: 1.5)))
                   : CachedNetworkImage(imageUrl: headerLogo, height: 28, errorWidget: (_, __, ___) => const Text('OZD WEAR')),
               actions: [IconButton(onPressed: () => Navigator.pushNamed(context, '/search'), icon: const Icon(Icons.search))],
             ),
