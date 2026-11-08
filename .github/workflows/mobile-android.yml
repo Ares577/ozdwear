@@ -35,15 +35,30 @@ jobs:
       - run: flutter pub get
       - run: flutter analyze --no-fatal-infos
       - run: flutter test
-      - run: timeout 15m flutter build apk --debug
+      - run: timeout 15m flutter build apk --debug $FIREBASE_DEFINES
         env:
+          FIREBASE_DEFINES: >-
+            --dart-define=OZD_FIREBASE_API_KEY=${{ secrets.OZD_FIREBASE_API_KEY }}
+            --dart-define=OZD_FIREBASE_PROJECT_ID=${{ secrets.OZD_FIREBASE_PROJECT_ID }}
+            --dart-define=OZD_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.OZD_FIREBASE_MESSAGING_SENDER_ID }}
+            --dart-define=OZD_FIREBASE_ANDROID_APP_ID=${{ secrets.OZD_FIREBASE_ANDROID_APP_ID }}
           GRADLE_OPTS: -Dorg.gradle.daemon=false -Dorg.gradle.parallel=false -Dorg.gradle.jvmargs=-Xmx2g
-      - run: timeout 15m flutter build apk --release
+      - run: timeout 15m flutter build apk --release $FIREBASE_DEFINES
         env:
+          FIREBASE_DEFINES: >-
+            --dart-define=OZD_FIREBASE_API_KEY=${{ secrets.OZD_FIREBASE_API_KEY }}
+            --dart-define=OZD_FIREBASE_PROJECT_ID=${{ secrets.OZD_FIREBASE_PROJECT_ID }}
+            --dart-define=OZD_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.OZD_FIREBASE_MESSAGING_SENDER_ID }}
+            --dart-define=OZD_FIREBASE_ANDROID_APP_ID=${{ secrets.OZD_FIREBASE_ANDROID_APP_ID }}
           OZD_ANDROID_KEYSTORE_BASE64: ${{ secrets.OZD_ANDROID_KEYSTORE_BASE64 }}
           GRADLE_OPTS: -Dorg.gradle.daemon=false -Dorg.gradle.parallel=false -Dorg.gradle.jvmargs=-Xmx2g
-      - run: timeout 15m flutter build appbundle --release
+      - run: timeout 15m flutter build appbundle --release $FIREBASE_DEFINES
         env:
+          FIREBASE_DEFINES: >-
+            --dart-define=OZD_FIREBASE_API_KEY=${{ secrets.OZD_FIREBASE_API_KEY }}
+            --dart-define=OZD_FIREBASE_PROJECT_ID=${{ secrets.OZD_FIREBASE_PROJECT_ID }}
+            --dart-define=OZD_FIREBASE_MESSAGING_SENDER_ID=${{ secrets.OZD_FIREBASE_MESSAGING_SENDER_ID }}
+            --dart-define=OZD_FIREBASE_ANDROID_APP_ID=${{ secrets.OZD_FIREBASE_ANDROID_APP_ID }}
           GRADLE_OPTS: -Dorg.gradle.daemon=false -Dorg.gradle.parallel=false -Dorg.gradle.jvmargs=-Xmx2g
       - uses: actions/upload-artifact@v4
         with:
