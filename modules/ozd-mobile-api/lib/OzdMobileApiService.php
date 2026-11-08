@@ -48,6 +48,7 @@ class OzdMobileApiService
 		if ($resource === 'auth') self::auth($parts[1] ?? '', $data, $user);
 		if ($resource === 'profile') self::profile($method, $parts[1] ?? '', $data, $user);
 		if ($resource === 'bootstrap' && $method === 'GET') self::bootstrap();
+		if ($resource === 'cms' && $method === 'GET') self::cms((string) ($parts[1] ?? ''));
 		if ($resource === 'products') self::products($method, $id, $data);
 		if ($resource === 'categories' && $method === 'GET') self::categories();
 		if ($resource === 'favorites') self::favorites($method, $id, $user);
@@ -146,6 +147,21 @@ class OzdMobileApiService
 			'google_login' => ['enabled' => $googleEnabled, 'server_client_id' => $googleEnabled ? (string) Settings::get('GOOGLE_CLIENT_ID') : ''],
 			'slides' => $slides,
 			'theme' => ['background' => '#f7f7f5', 'ink' => '#111111', 'muted' => '#767676', 'accent' => '#111111'],
+		]]);
+	}
+
+	private static function cms(string $slug): void
+	{
+		if (!class_exists('Cms', false)) require_once dirname(__DIR__, 2) . '/core/Cms.php';
+		$page = Cms::getBySlug($slug);
+		if (!$page) self::respond(['success' => false, 'message' => 'Sayfa bulunamadı'], 404);
+		self::respond(['success' => true, 'data' => [
+			'slug' => (string) ($page['slug'] ?? $slug),
+			'title' => (string) ($page['title'] ?? ''),
+			'summary' => (string) ($page['summary'] ?? ''),
+			'content' => (string) ($page['desc'] ?? $page['content'] ?? ''),
+			'meta_title' => (string) ($page['meta_title'] ?? ''),
+			'meta_description' => (string) ($page['meta_description'] ?? ''),
 		]]);
 	}
 
@@ -297,7 +313,7 @@ class OzdMobileApiService
 
 	private static function authenticate(string $route, string $method): ?array
 	{
-		if (in_array($route, ['auth/login', 'auth/register', 'auth/refresh', 'auth/forgot-password', 'auth/reset-password', 'contact'], true) || $route === 'bootstrap' || $route === 'products' || strpos($route, 'products/') === 0 || $route === 'categories') return null;
+		if (in_array($route, ['auth/login', 'auth/register', 'auth/refresh', 'auth/forgot-password', 'auth/reset-password', 'contact'], true) || $route === 'bootstrap' || $route === 'products' || strpos($route, 'products/') === 0 || $route === 'categories' || strpos($route, 'cms/') === 0) return null;
 		$raw = self::bearer();
 		if ($raw === '') self::respond(['success' => false, 'message' => 'Bearer token gerekli'], 401);
 		$row = DB::getRowSafe('mobile_access_tokens', 'token_hash = ? AND token_type = ? AND revoked_at IS NULL AND expires_at > NOW()', [hash('sha256', $raw), 'access']);
