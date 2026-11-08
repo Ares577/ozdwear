@@ -31,9 +31,18 @@ class AccountScreen extends StatelessWidget {
       ListTile(title: const Text('İadelerim'), leading: const Icon(Icons.assignment_return_outlined), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ReturnsScreen()))),
       ListTile(title: const Text('Adreslerim'), leading: const Icon(Icons.location_on_outlined), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddressesScreen()))),
       ListTile(title: const Text('İletişim'), leading: const Icon(Icons.mail_outline), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ContactScreen()))),
+      ListTile(title: const Text('Kampanya bültenine abone ol'), leading: const Icon(Icons.mark_email_unread_outlined), onTap: () => _newsletter(context)),
       ListTile(title: const Text('Gizlilik ve KVKK'), leading: const Icon(Icons.privacy_tip_outlined), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CmsScreen(slug: 'gizlilik', fallbackTitle: 'Gizlilik ve KVKK')))),
       ListTile(title: const Text('Mesafeli satış sözleşmesi'), leading: const Icon(Icons.description_outlined), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CmsScreen(slug: 'mesafeli-satis', fallbackTitle: 'Mesafeli satış sözleşmesi')))),
       ListTile(title: const Text('Çıkış yap'), leading: const Icon(Icons.logout), onTap: state.logout),
     ]);
+  }
+
+  Future<void> _newsletter(BuildContext context) async {
+    final controller = TextEditingController(text: '${context.read<AppState>().profile['email'] ?? ''}');
+    final email = await showDialog<String>(context: context, builder: (_) => AlertDialog(title: const Text('Kampanya bülteni'), content: TextField(controller: controller, keyboardType: TextInputType.emailAddress, decoration: const InputDecoration(labelText: 'E-posta')), actions: [TextButton(onPressed: () => Navigator.pop(context), child: const Text('Vazgeç')), FilledButton(onPressed: () => Navigator.pop(context, controller.text.trim()), child: const Text('Abone ol'))]));
+    controller.dispose();
+    if (email == null || email.isEmpty || !context.mounted) return;
+    try { final result = await context.read<AppState>().api.post('newsletter', body: {'email': email}); if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('${result['message'] ?? 'Aboneliğiniz kaydedildi.'}'))); } catch (error) { if (context.mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('$error'))); }
   }
 }

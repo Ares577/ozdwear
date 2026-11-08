@@ -49,6 +49,7 @@ class OzdMobileApiService
 		if ($resource === 'profile') self::profile($method, $parts[1] ?? '', $data, $user);
 		if ($resource === 'bootstrap' && $method === 'GET') self::bootstrap();
 		if ($resource === 'popup' && $method === 'GET') self::popup();
+		if ($resource === 'newsletter' && $method === 'POST') self::newsletter($data);
 		if ($resource === 'cms' && $method === 'GET') self::cms((string) ($parts[1] ?? ''));
 		if ($resource === 'track' && $method === 'GET') self::track((string) ($_GET['reference'] ?? ''));
 		if ($resource === 'products') self::products($method, $id, $data);
@@ -212,6 +213,17 @@ class OzdMobileApiService
 			self::respond(SmartPopupService::decide(['page_url' => '/', 'device' => 'mobile', 'visitor_id' => substr(hash('sha256', (string) ($_SERVER['REMOTE_ADDR'] ?? '') . (string) ($_SERVER['HTTP_USER_AGENT'] ?? '')), 0, 32)]));
 		}
 		self::respond(['success' => true, 'campaign' => null]);
+	}
+
+	private static function newsletter(array $data): void
+	{
+		if (!Module::isEnabled('newsletter')) self::respond(['success' => false, 'message' => 'Bülten servisi etkin değil'], 503);
+		if (!class_exists('NewsletterModule', false)) {
+			$file = dirname(__DIR__, 2) . '/newsletter/newsletter.php';
+			if (is_file($file)) require_once $file;
+		}
+		if (!class_exists('NewsletterModule', false)) self::respond(['success' => false, 'message' => 'Bülten servisi bulunamadı'], 503);
+		self::respond(NewsletterModule::subscribe((string) ($data['email'] ?? '')));
 	}
 
 	private static function cms(string $slug): void
@@ -452,7 +464,7 @@ class OzdMobileApiService
 
 	private static function authenticate(string $route, string $method): ?array
 	{
-		if (in_array($route, ['auth/login', 'auth/register', 'auth/refresh', 'auth/forgot-password', 'auth/reset-password', 'contact', 'track', 'popup'], true) || $route === 'bootstrap' || $route === 'products' || strpos($route, 'products/') === 0 || $route === 'categories' || $route === 'brands' || strpos($route, 'cms/') === 0) return null;
+		if (in_array($route, ['auth/login', 'auth/register', 'auth/refresh', 'auth/forgot-password', 'auth/reset-password', 'contact', 'track', 'popup', 'newsletter'], true) || $route === 'bootstrap' || $route === 'products' || strpos($route, 'products/') === 0 || $route === 'categories' || $route === 'brands' || strpos($route, 'cms/') === 0) return null;
 		$raw = self::bearer();
 		if ($raw === '') self::respond(['success' => false, 'message' => 'Bearer token gerekli'], 401);
 		$row = DB::getRowSafe('mobile_access_tokens', 'token_hash = ? AND token_type = ? AND revoked_at IS NULL AND expires_at > NOW()', [hash('sha256', $raw), 'access']);
