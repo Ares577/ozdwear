@@ -24,6 +24,13 @@ class AppState extends ChangeNotifier {
   bool googleLoginEnabled = false;
   String googleServerClientId = '';
   String? lastError;
+  int _productPage = 1;
+  int _productCategoryId = 0;
+  int _productBrandId = 0;
+  String _productFilter = '';
+  String _productSort = 'newest';
+  bool hasMoreProducts = true;
+  bool loadingMoreProducts = false;
 
   Future<void> hydrateSession() async {
     try {
@@ -57,11 +64,19 @@ class AppState extends ChangeNotifier {
   }
 
   Future<void> loadProducts({int categoryId = 0, int brandId = 0, String filter = '', String sort = 'newest'}) async {
+    _productPage = 1;
+    _productCategoryId = categoryId;
+    _productBrandId = brandId;
+    _productFilter = filter;
+    _productSort = sort;
+    hasMoreProducts = true;
     loading = true; notifyListeners();
     final cacheKey = 'products_${categoryId}_${brandId}_${filter}_$sort';
     try {
       final result = await api.get('products', query: {'page': '1', 'limit': '24', if (categoryId > 0) 'category_id': '$categoryId', if (brandId > 0) 'brand_id': '$brandId', if (filter.isNotEmpty) 'filter': filter, 'sort': sort});
-      products = ((result['data'] as List?) ?? []).whereType<Map>().map((e) => Product.fromJson(Map<String, dynamic>.from(e))).toList();
+      final rows = ((result['data'] as List?) ?? []).whereType<Map>().map((e) => Product.fromJson(Map<String, dynamic>.from(e))).toList();
+      products = rows;
+      hasMoreProducts = rows.length < (((result['meta'] as Map?)?['total'] as num?)?.toInt() ?? rows.length);
       await session.writeCache(cacheKey, jsonEncode(result['data'] ?? const []));
     } catch (error) {
       lastError = error.toString();
@@ -70,6 +85,26 @@ class AppState extends ChangeNotifier {
         if (cached != null && cached.isNotEmpty) products = (jsonDecode(cached) as List).whereType<Map>().map((e) => Product.fromJson(Map<String, dynamic>.from(e))).toList();
       } catch (_) {}
     } finally { loading = false; notifyListeners(); }
+  }
+
+  Future<void> loadMoreProducts() async {
+    if (loading || loadingMoreProducts || !hasMoreProducts) return;
+    loadingMoreProducts = true;
+    notifyListeners();
+    final nextPage = _productPage + 1;
+    try {
+      final result = await api.get('products', query: {'page': '$nextPage', 'limit': '24', if (_productCategoryId > 0) 'category_id': '$_productCategoryId', if (_productBrandId > 0) 'brand_id': '$_productBrandId', if (_productFilter.isNotEmpty) 'filter': _productFilter, 'sort': _productSort});
+      final rows = ((result['data'] as List?) ?? []).whereType<Map>().map((e) => Product.fromJson(Map<String, dynamic>.from(e))).toList();
+      products = [...products, ...rows];
+      _productPage = nextPage;
+      final total = (((result['meta'] as Map?)?['total'] as num?)?.toInt() ?? products.length);
+      hasMoreProducts = products.length < total && rows.isNotEmpty;
+    } catch (error) {
+      lastError = error.toString();
+    } finally {
+      loadingMoreProducts = false;
+      notifyListeners();
+    }
   }
 
   Future<void> searchProducts(String query) async {
