@@ -52,6 +52,7 @@ class OzdMobileApiService
 		if ($resource === 'track' && $method === 'GET') self::track((string) ($_GET['reference'] ?? ''));
 		if ($resource === 'products') self::products($method, $id, $data);
 		if ($resource === 'categories' && $method === 'GET') self::categories();
+		if ($resource === 'brands' && $method === 'GET') self::brands();
 		if ($resource === 'favorites') self::favorites($method, $id, $user);
 		if ($resource === 'cart') self::cart($method, $parts[1] ?? '', $data, $user);
 		if ($resource === 'addresses') self::addresses($method, $id, $data, $user);
@@ -245,6 +246,11 @@ class OzdMobileApiService
 		self::respond(['success' => true, 'data' => $rows]);
 	}
 
+	private static function brands(): void
+	{
+		self::respond(['success' => true, 'data' => Brand::getPublicList(100)]);
+	}
+
 	private static function normalizeProductAssets(array $product): array
 	{
 		if (empty($product['image_url']) && !empty($product['id_image'])) {
@@ -384,7 +390,7 @@ class OzdMobileApiService
 
 	private static function authenticate(string $route, string $method): ?array
 	{
-		if (in_array($route, ['auth/login', 'auth/register', 'auth/refresh', 'auth/forgot-password', 'auth/reset-password', 'contact', 'track'], true) || $route === 'bootstrap' || $route === 'products' || strpos($route, 'products/') === 0 || $route === 'categories' || strpos($route, 'cms/') === 0) return null;
+		if (in_array($route, ['auth/login', 'auth/register', 'auth/refresh', 'auth/forgot-password', 'auth/reset-password', 'contact', 'track'], true) || $route === 'bootstrap' || $route === 'products' || strpos($route, 'products/') === 0 || $route === 'categories' || $route === 'brands' || strpos($route, 'cms/') === 0) return null;
 		$raw = self::bearer();
 		if ($raw === '') self::respond(['success' => false, 'message' => 'Bearer token gerekli'], 401);
 		$row = DB::getRowSafe('mobile_access_tokens', 'token_hash = ? AND token_type = ? AND revoked_at IS NULL AND expires_at > NOW()', [hash('sha256', $raw), 'access']);

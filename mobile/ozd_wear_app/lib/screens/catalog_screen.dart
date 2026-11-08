@@ -23,6 +23,11 @@ class CatalogScreen extends StatelessWidget {
           const SizedBox(height: 4), Text('${c['name'] ?? c['category_name'] ?? ''}', maxLines: 1, overflow: TextOverflow.ellipsis, style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w700)),
         ])));
       })),
+      if (state.brands.isNotEmpty) SizedBox(height: 46, child: ListView.separated(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 16), itemCount: state.brands.length, separatorBuilder: (_, __) => const SizedBox(width: 8), itemBuilder: (_, i) {
+        final brand = Map<String, dynamic>.from(state.brands[i] as Map);
+        final id = int.tryParse('${brand['id_brand'] ?? brand['id'] ?? 0}') ?? 0;
+        return ActionChip(label: Text('${brand['brand_name'] ?? brand['name'] ?? ''}'), onPressed: () => state.loadProducts(brandId: id));
+      })),
       Expanded(child: state.loading ? const Center(child: CircularProgressIndicator()) : state.products.isEmpty ? Center(child: ElevatedButton(onPressed: state.loadProducts, child: const Text('Ürünleri yükle'))) : GridView.builder(padding: const EdgeInsets.all(16), itemCount: state.products.length, gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(crossAxisCount: 2, mainAxisSpacing: 18, crossAxisSpacing: 14, childAspectRatio: .63), itemBuilder: (_, i) => ProductCard(product: state.products[i], onTap: () => Navigator.pushNamed(context, '/product', arguments: state.products[i])))),
     ]));
   }

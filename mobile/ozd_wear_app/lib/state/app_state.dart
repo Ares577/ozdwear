@@ -13,6 +13,7 @@ class AppState extends ChangeNotifier {
   bool signedIn = false;
   List<dynamic> favorites = [];
   List<dynamic> categories = [];
+  List<dynamic> brands = [];
   Map<String, dynamic> bootstrap = {};
   Map<String, dynamic> cart = {};
   Map<String, dynamic> profile = {};
@@ -38,6 +39,8 @@ class AppState extends ChangeNotifier {
       googleServerClientId = '${google['server_client_id'] ?? ''}';
       final categoryResult = await api.get('categories');
       categories = (categoryResult['data'] as List?) ?? const [];
+      final brandResult = await api.get('brands');
+      brands = (brandResult['data'] as List?) ?? const [];
       notifyListeners();
     } catch (error) {
       lastError = error.toString();
@@ -45,9 +48,9 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  Future<void> loadProducts({int categoryId = 0, String filter = '', String sort = 'newest'}) async {
+  Future<void> loadProducts({int categoryId = 0, int brandId = 0, String filter = '', String sort = 'newest'}) async {
     loading = true; notifyListeners();
-    try { final result = await api.get('products', query: {'page': '1', 'limit': '24', if (categoryId > 0) 'category_id': '$categoryId', if (filter.isNotEmpty) 'filter': filter, 'sort': sort}); products = ((result['data'] as List?) ?? []).whereType<Map>().map((e) => Product.fromJson(Map<String, dynamic>.from(e))).toList(); } catch (error) { lastError = error.toString(); } finally { loading = false; notifyListeners(); }
+    try { final result = await api.get('products', query: {'page': '1', 'limit': '24', if (categoryId > 0) 'category_id': '$categoryId', if (brandId > 0) 'brand_id': '$brandId', if (filter.isNotEmpty) 'filter': filter, 'sort': sort}); products = ((result['data'] as List?) ?? []).whereType<Map>().map((e) => Product.fromJson(Map<String, dynamic>.from(e))).toList(); } catch (error) { lastError = error.toString(); } finally { loading = false; notifyListeners(); }
   }
 
   Future<void> searchProducts(String query) async {
