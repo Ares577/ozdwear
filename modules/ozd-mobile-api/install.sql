@@ -14,6 +14,11 @@ CREATE TABLE IF NOT EXISTS `mobile_access_tokens` (
   KEY `expires_at` (`expires_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+INSERT INTO `settings` (`title`, `value`) VALUES
+('OZD_MOBILE_ANDROID_URL', ''),
+('OZD_MOBILE_IOS_URL', '')
+ON DUPLICATE KEY UPDATE `title` = VALUES(`title`);
+
 CREATE TABLE IF NOT EXISTS `mobile_devices` (
   `id_device` bigint unsigned NOT NULL AUTO_INCREMENT,
   `id_user` int unsigned NOT NULL,

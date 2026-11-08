@@ -48,11 +48,25 @@ class OzdMobileApiModule extends ModuleBase
 		if (Tools::isSubmit('saveMobileApi') && hash_equals($adminToken, (string) Tools::getValue('token'))) {
 			Settings::set('OZD_MOBILE_API_ENABLED', Tools::getValue('enabled') === '1' ? '1' : '0');
 			Settings::set('OZD_MOBILE_API_VERSION', trim((string) Tools::getValue('app_version')));
+			Settings::set('OZD_MOBILE_ANDROID_URL', trim((string) Tools::getValue('android_url')));
+			Settings::set('OZD_MOBILE_IOS_URL', trim((string) Tools::getValue('ios_url')));
 			$flash = 'Mobil API ayarları kaydedildi.';
 		}
+		$deviceCount = (int) DB::getValue('SELECT COUNT(*) FROM mobile_devices WHERE active = 1');
+		$androidCount = (int) DB::getValue("SELECT COUNT(*) FROM mobile_devices WHERE active = 1 AND platform = 'android'");
+		$iosCount = (int) DB::getValue("SELECT COUNT(*) FROM mobile_devices WHERE active = 1 AND platform = 'ios'");
+		$logCount = (int) DB::getValue('SELECT COUNT(*) FROM mobile_api_logs WHERE date_add >= DATE_SUB(NOW(), INTERVAL 24 HOUR)');
+		$tokenCount = (int) DB::getValue("SELECT COUNT(*) FROM mobile_access_tokens WHERE token_type = 'access' AND revoked_at IS NULL AND expires_at > NOW()");
 		$smarty->assign([
 			'mobileApiEnabled' => Settings::get('OZD_MOBILE_API_ENABLED') !== '0',
 			'mobileAppVersion' => Settings::get('OZD_MOBILE_API_VERSION') ?: '1.0.0',
+			'androidDownloadUrl' => (string) Settings::get('OZD_MOBILE_ANDROID_URL'),
+			'iosDownloadUrl' => (string) Settings::get('OZD_MOBILE_IOS_URL'),
+			'deviceCount' => $deviceCount,
+			'androidDeviceCount' => $androidCount,
+			'iosDeviceCount' => $iosCount,
+			'apiLogCount' => $logCount,
+			'activeTokenCount' => $tokenCount,
 			'mobileApiUrl' => rtrim((string) $domain, '/') . '/api/module.php?m=ozd-mobile-api&action=api',
 			'flash' => $flash,
 		]);

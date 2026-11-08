@@ -44,6 +44,17 @@ class OzdMobileApiService
 		$parts = array_values(array_filter(explode('/', trim($route, '/'))));
 		$resource = strtolower((string) ($parts[0] ?? 'bootstrap'));
 		$id = ctype_digit((string) ($parts[1] ?? '')) ? (int) $parts[1] : 0;
+		try {
+			DB::insert('mobile_api_logs', [
+				'id_user' => (int) ($user['id_user'] ?? 0),
+				'route' => substr($route, 0, 120),
+				'method' => substr($method, 0, 8),
+				'status_code' => 200,
+				'ip_hash' => hash('sha256', (string) ($_SERVER['REMOTE_ADDR'] ?? '')),
+			]);
+		} catch (Throwable $e) {
+			// Observability must never block storefront requests.
+		}
 
 		if ($resource === 'auth') self::auth($parts[1] ?? '', $data, $user);
 		if ($resource === 'profile') self::profile($method, $parts[1] ?? '', $data, $user);
@@ -241,6 +252,11 @@ class OzdMobileApiService
 				'address' => (string) Settings::get('CONTACT_ADDRESS'),
 			],
 			'google_login' => ['enabled' => $googleEnabled, 'server_client_id' => $googleEnabled ? (string) Settings::get('GOOGLE_CLIENT_ID') : ''],
+			'release' => [
+				'min_version' => (string) (Settings::get('OZD_MOBILE_API_VERSION') ?: '1.0.0'),
+				'android_url' => (string) Settings::get('OZD_MOBILE_ANDROID_URL'),
+				'ios_url' => (string) Settings::get('OZD_MOBILE_IOS_URL'),
+			],
 			'slides' => $slides,
 			'trust_bar' => is_array($trustBar) ? $trustBar : [],
 			'instagram_gallery' => is_array($instagram) ? $instagram : [],
