@@ -3,6 +3,7 @@
 class OzdMobileApiService
 {
 	private static bool $schemaReady = false;
+	private static ?int $mobileCartUserId = null;
 
 	public static function ensureSchema(): void
 	{
@@ -11,10 +12,12 @@ class OzdMobileApiService
 		DB::execute("CREATE TABLE IF NOT EXISTS `mobile_access_tokens` (`id_token` bigint unsigned NOT NULL AUTO_INCREMENT, `id_user` int unsigned NOT NULL, `token_hash` char(64) NOT NULL, `token_type` enum('access','refresh') NOT NULL DEFAULT 'access', `expires_at` datetime NOT NULL, `revoked_at` datetime DEFAULT NULL, `ip_hash` char(64) NOT NULL DEFAULT '', `user_agent` varchar(255) NOT NULL DEFAULT '', `date_add` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (`id_token`), UNIQUE KEY `token_hash` (`token_hash`), KEY `user_type` (`id_user`,`token_type`,`revoked_at`), KEY `expires_at` (`expires_at`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 		DB::execute("CREATE TABLE IF NOT EXISTS `mobile_devices` (`id_device` bigint unsigned NOT NULL AUTO_INCREMENT, `id_user` int unsigned NOT NULL, `device_id` varchar(128) NOT NULL, `platform` enum('android','ios','unknown') NOT NULL DEFAULT 'unknown', `push_token` varchar(512) NOT NULL DEFAULT '', `marketing_opt_in` tinyint(1) NOT NULL DEFAULT 0, `active` tinyint(1) NOT NULL DEFAULT 1, `last_seen_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP, `date_add` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (`id_device`), UNIQUE KEY `user_device` (`id_user`,`device_id`), KEY `push_active` (`active`,`push_token`(128))) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 		DB::execute("CREATE TABLE IF NOT EXISTS `mobile_api_logs` (`id_log` bigint unsigned NOT NULL AUTO_INCREMENT, `id_user` int unsigned NOT NULL DEFAULT 0, `route` varchar(120) NOT NULL, `method` varchar(8) NOT NULL, `status_code` smallint unsigned NOT NULL DEFAULT 200, `ip_hash` char(64) NOT NULL DEFAULT '', `date_add` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP, PRIMARY KEY (`id_log`), KEY `route_date` (`route`,`date_add`), KEY `user_date` (`id_user`,`date_add`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+		DB::execute("CREATE TABLE IF NOT EXISTS `mobile_carts` (`id_user` int unsigned NOT NULL, `cart_json` longtext NOT NULL, `meta_json` longtext NOT NULL, `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP, PRIMARY KEY (`id_user`)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 	}
 
 	public static function respond(array $payload, int $status = 200): void
 	{
+		self::persistMobileCart();
 		header('Content-Type: application/json; charset=utf-8');
 		header('Cache-Control: no-store');
 		http_response_code($status);
@@ -41,6 +44,7 @@ class OzdMobileApiService
 		$method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 		$data = self::input();
 		$user = self::authenticate($route, $method);
+		self::hydrateMobileCart($user);
 		$parts = array_values(array_filter(explode('/', trim($route, '/'))));
 		$resource = strtolower((string) ($parts[0] ?? 'bootstrap'));
 		$id = ctype_digit((string) ($parts[1] ?? '')) ? (int) $parts[1] : 0;
@@ -84,6 +88,41 @@ class OzdMobileApiService
 		if ($resource === 'notifications') self::notifications($method, $id, $parts[2] ?? '', $user);
 		if ($resource === 'devices' && $method === 'POST') self::device($data, $user);
 		self::respond(['success' => false, 'message' => 'Mobil API rotası bulunamadı'], 404);
+	}
+
+	private static function hydrateMobileCart(?array $user): void
+	{
+		self::$mobileCartUserId = (int) ($user['id_user'] ?? 0);
+		if (self::$mobileCartUserId <= 0) return;
+		try {
+			$row = DB::getRowSafe('mobile_carts', 'id_user = ?', [self::$mobileCartUserId]);
+			$cart = json_decode((string) ($row['cart_json'] ?? ''), true);
+			$meta = json_decode((string) ($row['meta_json'] ?? ''), true);
+			$_SESSION[Cart::SESSION_KEY] = is_array($cart) ? $cart : [];
+			$_SESSION[Cart::META_KEY] = is_array($meta) ? $meta : [];
+			Cart::init();
+		} catch (Throwable $e) {
+			// A missing or unavailable persistence table must not break the API.
+			Cart::init();
+		}
+	}
+
+	private static function persistMobileCart(): void
+	{
+		if (self::$mobileCartUserId === null || self::$mobileCartUserId <= 0) return;
+		try {
+			Cart::init();
+			DB::execute(
+				'INSERT INTO mobile_carts (id_user, cart_json, meta_json, updated_at) VALUES (?, ?, ?, NOW()) ON DUPLICATE KEY UPDATE cart_json = VALUES(cart_json), meta_json = VALUES(meta_json), updated_at = NOW()',
+				[
+					self::$mobileCartUserId,
+					json_encode($_SESSION[Cart::SESSION_KEY] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+					json_encode($_SESSION[Cart::META_KEY] ?? [], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES),
+				]
+			);
+		} catch (Throwable $e) {
+			// Persistence is best effort; the request result remains authoritative.
+		}
 	}
 
 	private static function track(string $reference): void

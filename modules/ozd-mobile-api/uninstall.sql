@@ -1,4 +1,5 @@
 DROP TABLE IF EXISTS `mobile_api_logs`;
+DROP TABLE IF EXISTS `mobile_carts`;
 DROP TABLE IF EXISTS `mobile_devices`;
 DROP TABLE IF EXISTS `mobile_access_tokens`;
 DELETE FROM `settings` WHERE `title` IN ('OZD_MOBILE_API_ENABLED', 'OZD_MOBILE_API_VERSION', 'OZD_MOBILE_ANDROID_URL', 'OZD_MOBILE_IOS_URL');

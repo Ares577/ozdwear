@@ -46,3 +46,11 @@ CREATE TABLE IF NOT EXISTS `mobile_api_logs` (
   KEY `route_date` (`route`,`date_add`),
   KEY `user_date` (`id_user`,`date_add`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+CREATE TABLE IF NOT EXISTS `mobile_carts` (
+  `id_user` int unsigned NOT NULL,
+  `cart_json` longtext NOT NULL,
+  `meta_json` longtext NOT NULL,
+  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id_user`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
