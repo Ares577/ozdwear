@@ -29,7 +29,7 @@ class _BlogScreenState extends State<BlogScreen> {
         final rows = ((snapshot.data?['data'] as List?) ?? const []).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
         if (rows.isEmpty) return const Center(child: Text('Henüz blog yazısı bulunmuyor.'));
         return RefreshIndicator(
-          onRefresh: () async { setState(() => _future = context.read<AppState>().api.get('blog')); await _future; },
+          onRefresh: () async { final request = context.read<AppState>().api.get('blog'); setState(() => _future = request); await request; },
           child: ListView.separated(padding: const EdgeInsets.all(16), itemCount: rows.length, separatorBuilder: (_, __) => const SizedBox(height: 14), itemBuilder: (_, index) {
             final post = rows[index];
             final image = '${post['cover_url'] ?? ''}';
@@ -55,5 +55,5 @@ class _BlogScreenState extends State<BlogScreen> {
     const SizedBox(height: 18), Text('${post['title'] ?? ''}', style: const TextStyle(fontSize: 26, fontWeight: FontWeight.w800)),
     if ('${post['date_formatted'] ?? ''}'.isNotEmpty) Padding(padding: const EdgeInsets.only(top: 8), child: Text('${post['date_formatted']}', style: const TextStyle(color: Colors.grey))),
     const SizedBox(height: 18), Text('${post['content'] ?? post['excerpt'] ?? ''}', style: const TextStyle(fontSize: 16, height: 1.5)),
-  ]);
+  ]));
 }
