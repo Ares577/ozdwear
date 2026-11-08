@@ -51,7 +51,9 @@ class OzdMobileApiService
 		if ($resource === 'popup' && $method === 'GET') self::popup();
 		if ($resource === 'newsletter' && $method === 'POST') self::newsletter($data);
 		if ($resource === 'cms' && $method === 'GET') self::cms((string) ($parts[1] ?? ''));
+		if ($resource === 'blog' && $method === 'GET') self::blog($parts[1] ?? '', $id, $parts[2] ?? '');
 		if ($resource === 'track' && $method === 'GET') self::track((string) ($_GET['reference'] ?? ''));
+		if ($resource === 'recent-viewed' && $method === 'POST') self::recentViewed($id);
 		if ($resource === 'price-alert' && $method === 'POST') self::priceAlert($data);
 		if ($resource === 'stock-alert' && $method === 'POST') self::stockAlert($data);
 		if ($resource === 'products' && ($parts[2] ?? '') === 'questions') self::questions($method, $id, $data, $user);
@@ -313,11 +315,13 @@ class OzdMobileApiService
 			$product['product_tabs'] = self::optionalProductData('product-tabs', 'ProductTabsService', 'ProductTabsService.php', 'getTabsForProduct', $id);
 			$product['siblings'] = self::optionalProductData('product-siblings', 'ProductSiblingsService', 'ProductSiblingsService.php', 'getSiblingsForProduct', $id);
 			$product['cart_promo_offers'] = class_exists('CartPromotion', false) ? CartPromotion::getProductPageOffers($basePrice) : [];
+			$product['quantity_tiers'] = self::optionalServiceCall('quantity-tiers', 'QuantityTiersService', 'QuantityTiersService.php', 'getStorefrontTiers', [$id, $basePrice]);
+			$product['discount_timer'] = self::optionalServiceCall('discount-timer', 'DiscountTimerService', 'DiscountTimerService.php', 'getActiveForProduct', [$id, $product]) ?: [];
 			$product['extra_text'] = Module::isEnabled('product-extra-text') ? (string) Settings::get('PRODUCT_EXTRA_TEXT_CONTENT') : '';
 			$related = Product::getRelatedForProduct($product, 12);
 			$product['related_products'] = array_map(static function (array $row): array { return self::normalizeProductAssets($row); }, (array) ($related['products'] ?? []));
 			$product = self::normalizeProductAssets($product);
-			self::respond(['success' => true, 'data' => $product]);
+		self::respond(['success' => true, 'data' => $product]);
 		}
 		$page = max(1, (int) ($_GET['page'] ?? 1));
 		$limit = min(50, max(1, (int) ($_GET['limit'] ?? 20)));
@@ -346,6 +350,39 @@ class OzdMobileApiService
 			return self::normalizeProductAssets($row);
 		}, $rows);
 		self::respond(['success' => true, 'data' => $rows, 'meta' => ['page' => $page, 'limit' => $limit, 'total' => $total, 'query' => $query]]);
+	}
+
+	private static function blog(string $part, int $id, string $subPart): void
+	{
+		if (!Module::isEnabled('blog')) self::respond(['success' => true, 'data' => []]);
+		if (!class_exists('BlogService', false)) {
+			$file = dirname(__DIR__, 2) . '/blog/lib/BlogService.php';
+			if (is_file($file)) require_once $file;
+		}
+		if (!class_exists('BlogService', false)) self::respond(['success' => false, 'message' => 'Blog servisi bulunamadı'], 503);
+		if ($part === 'category' && ctype_digit($subPart) && (int) $subPart > 0) {
+			$id = (int) $subPart;
+			$page = max(1, (int) ($_GET['page'] ?? 1));
+			$limit = min(50, max(1, (int) ($_GET['limit'] ?? 20)));
+			self::respond(['success' => true, 'data' => BlogService::getList(true, $limit, ($page - 1) * $limit, $id), 'meta' => ['page' => $page, 'limit' => $limit, 'category_id' => $id]]);
+		}
+		if ($id > 0 || $part !== '') {
+			$post = $id > 0 ? BlogService::getPublishedById($id) : BlogService::getBySlug($part);
+			if (!$post) self::respond(['success' => false, 'message' => 'Blog yazısı bulunamadı'], 404);
+			self::respond(['success' => true, 'data' => BlogService::enrich($post)]);
+		}
+		$page = max(1, (int) ($_GET['page'] ?? 1));
+		$limit = min(50, max(1, (int) ($_GET['limit'] ?? 20)));
+		self::respond(['success' => true, 'data' => BlogService::getList(true, $limit, ($page - 1) * $limit), 'categories' => BlogService::getCategories(true), 'meta' => ['page' => $page, 'limit' => $limit]]);
+	}
+
+	private static function recentViewed(int $idProduct): void
+	{
+		if ($idProduct <= 0 || !Module::isEnabled('recent-viewed')) self::respond(['success' => true]);
+		$file = dirname(__DIR__, 2) . '/recent-viewed/lib/RecentViewedService.php';
+		if (!class_exists('RecentViewedService', false) && is_file($file)) require_once $file;
+		if (class_exists('RecentViewedService', false)) RecentViewedService::track($idProduct);
+		self::respond(['success' => true]);
 	}
 
 	private static function questions(string $method, int $idProduct, array $data, ?array $user): void
@@ -562,7 +599,7 @@ class OzdMobileApiService
 
 	private static function authenticate(string $route, string $method): ?array
 	{
-		if (in_array($route, ['auth/login', 'auth/register', 'auth/refresh', 'auth/forgot-password', 'auth/reset-password', 'contact', 'track', 'popup', 'newsletter', 'price-alert', 'stock-alert'], true) || $route === 'bootstrap' || $route === 'products' || strpos($route, 'products/') === 0 || $route === 'categories' || $route === 'brands' || strpos($route, 'cms/') === 0) return null;
+		if (in_array($route, ['auth/login', 'auth/register', 'auth/refresh', 'auth/forgot-password', 'auth/reset-password', 'contact', 'track', 'popup', 'newsletter', 'price-alert', 'stock-alert'], true) || $route === 'bootstrap' || $route === 'products' || strpos($route, 'products/') === 0 || $route === 'categories' || $route === 'brands' || strpos($route, 'cms/') === 0 || $route === 'blog' || strpos($route, 'blog/') === 0 || strpos($route, 'recent-viewed/') === 0) return null;
 		$raw = self::bearer();
 		if ($raw === '') self::respond(['success' => false, 'message' => 'Bearer token gerekli'], 401);
 		$row = DB::getRowSafe('mobile_access_tokens', 'token_hash = ? AND token_type = ? AND revoked_at IS NULL AND expires_at > NOW()', [hash('sha256', $raw), 'access']);

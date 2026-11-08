@@ -26,8 +26,10 @@ class Product {
   final List<dynamic> cartPromoOffers;
   final List<dynamic> questions;
   final Map<String, dynamic> productSet;
+  final List<dynamic> quantityTiers;
+  final Map<String, dynamic> discountTimer;
 
-  const Product({required this.id, required this.name, required this.image, required this.price, required this.oldPrice, this.description = '', this.images = const [], this.variations = const [], this.variationGroups = const [], this.optionGroups = const [], this.url = '', this.brand = '', this.category = '', this.inStock = true, this.rating = 0, this.reviewCount = 0, this.reviews = const [], this.relatedProducts = const [], this.saleUnit = 'piece', this.isM2 = false, this.isPack = false, this.productTabs = const [], this.siblings = const [], this.extraText = '', this.cartPromoOffers = const [], this.questions = const [], this.productSet = const {}});
+  const Product({required this.id, required this.name, required this.image, required this.price, required this.oldPrice, this.description = '', this.images = const [], this.variations = const [], this.variationGroups = const [], this.optionGroups = const [], this.url = '', this.brand = '', this.category = '', this.inStock = true, this.rating = 0, this.reviewCount = 0, this.reviews = const [], this.relatedProducts = const [], this.saleUnit = 'piece', this.isM2 = false, this.isPack = false, this.productTabs = const [], this.siblings = const [], this.extraText = '', this.cartPromoOffers = const [], this.questions = const [], this.productSet = const {}, this.quantityTiers = const [], this.discountTimer = const {}});
 
   factory Product.fromJson(Map<String, dynamic> json) {
     int asInt(dynamic value) => int.tryParse('$value') ?? 0;
@@ -76,6 +78,8 @@ class Product {
       cartPromoOffers: (json['cart_promo_offers'] as List?) ?? const [],
       questions: (json['product_questions'] as List?) ?? (json['questions'] as List?) ?? const [],
       productSet: Map<String, dynamic>.from((json['product_set'] as Map?) ?? const {}),
+      quantityTiers: (json['quantity_tiers'] as List?) ?? const [],
+      discountTimer: Map<String, dynamic>.from((json['discount_timer'] as Map?) ?? const {}),
     );
   }
 }

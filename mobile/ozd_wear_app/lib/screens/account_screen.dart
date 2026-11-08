@@ -10,6 +10,7 @@ import 'contact_screen.dart';
 import 'cms_screen.dart';
 import 'track_screen.dart';
 import 'returns_screen.dart';
+import 'blog_screen.dart';
 
 class AccountScreen extends StatelessWidget {
   const AccountScreen({super.key});
@@ -20,6 +21,7 @@ class AccountScreen extends StatelessWidget {
       FilledButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AuthScreen())), child: const Text('Giriş yap')),
       TextButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TrackScreen())), child: const Text('Sipariş takibi')),
       TextButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ContactScreen())), child: const Text('İletişim')),
+      TextButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BlogScreen())), child: const Text('Blog')),
       TextButton(onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CmsScreen(slug: 'gizlilik', fallbackTitle: 'Gizlilik ve KVKK'))), child: const Text('Gizlilik ve KVKK')),
     ]));
     return ListView(padding: const EdgeInsets.all(20), children: [
@@ -31,6 +33,7 @@ class AccountScreen extends StatelessWidget {
       ListTile(title: const Text('İadelerim'), leading: const Icon(Icons.assignment_return_outlined), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ReturnsScreen()))),
       ListTile(title: const Text('Adreslerim'), leading: const Icon(Icons.location_on_outlined), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AddressesScreen()))),
       ListTile(title: const Text('İletişim'), leading: const Icon(Icons.mail_outline), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const ContactScreen()))),
+      ListTile(title: const Text('Blog'), leading: const Icon(Icons.article_outlined), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const BlogScreen()))),
       ListTile(title: const Text('Kampanya bültenine abone ol'), leading: const Icon(Icons.mark_email_unread_outlined), onTap: () => _newsletter(context)),
       ListTile(title: const Text('Gizlilik ve KVKK'), leading: const Icon(Icons.privacy_tip_outlined), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CmsScreen(slug: 'gizlilik', fallbackTitle: 'Gizlilik ve KVKK')))),
       ListTile(title: const Text('Mesafeli satış sözleşmesi'), leading: const Icon(Icons.description_outlined), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const CmsScreen(slug: 'mesafeli-satis', fallbackTitle: 'Mesafeli satış sözleşmesi')))),
