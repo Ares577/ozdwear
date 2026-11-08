@@ -237,7 +237,9 @@ class OzdMobileApiService
 	{
 		$rows = DB::execute('SELECT id_category AS id, category_name AS name, category_link AS slug, id_parent AS parent_id FROM categories WHERE active = 1 ORDER BY position ASC, category_name ASC') ?: [];
 		$rows = array_map(static function (array $row): array {
-			$row['image_url'] = Category::getImageUrl((int) ($row['id'] ?? 0));
+			$id = (int) ($row['id'] ?? 0);
+			$cover = DB::getValue('SELECT i.id_image FROM products p INNER JOIN images i ON i.id_product = p.id_product AND i.cover = 1 LEFT JOIN product_category pc ON pc.id_product = p.id_product AND pc.id_category = ? WHERE p.active = 1 AND (p.id_category = ? OR pc.id_category IS NOT NULL) ORDER BY p.id_product ASC, i.id_image ASC LIMIT 1', [$id, $id]);
+			$row['image_url'] = $cover ? Product::getImageUrl((int) $cover) : Category::getImageUrl($id);
 			return $row;
 		}, $rows);
 		self::respond(['success' => true, 'data' => $rows]);
