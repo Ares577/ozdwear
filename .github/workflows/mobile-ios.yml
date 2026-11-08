@@ -20,7 +20,7 @@ jobs:
           cache: true
       - name: Create native platform folders when absent
         run: |
-          if [ ! -d ios ]; then flutter create --platforms=ios --org com.ozdwear .; fi
+          if [ ! -d ios ] || [ ! -d android ]; then flutter create --platforms=android,ios --org com.ozdwear .; fi
           # Keep the iOS bundle identifier aligned with the registered app.
           sed -i '' 's/com\.ozdwear\.ozdWearApp/com.ozdwear.app/g; s/com\.ozdwear\.ozd_wear_app/com.ozdwear.app/g' ios/Runner.xcodeproj/project.pbxproj
           rm -f test/widget_test.dart
